@@ -1,6 +1,5 @@
 env/
 wandb
-results/
 results.tar.gz
 .wandb-runtime-*/
 __pycache__/
