@@ -179,6 +179,7 @@ def train(
     space_direction_seed: int = 0,
     space_hvp_budget: int = 10_000,
     space_intersection_cosine: float = 0.999,
+    space_progress: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> List[float]:
     """Train the model and optionally log per-batch metrics to W&B.
 
@@ -334,6 +335,7 @@ def train(
                     direction_seed=space_direction_seed,
                     hvp_budget=space_hvp_budget,
                     intersection_cosine=space_intersection_cosine,
+                    progress=space_progress,
                 )
                 metrics.update(space_metrics)
                 if hasattr(wandb_run, "log_artifact"):
@@ -353,9 +355,15 @@ def train(
                     )
                     with tempfile.TemporaryDirectory(prefix="loss-spaces-") as directory:
                         path = Path(directory) / f"spaces_step_{step + 1}.pt"
+                        if space_progress is not None:
+                            space_progress({"stage": "artifact_save_start", "step": step + 1})
                         t.save(directions, path)
+                        if space_progress is not None:
+                            space_progress({"stage": "artifact_saved", "bytes": path.stat().st_size})
                         artifact.add_file(str(path))
                         wandb_run.log_artifact(artifact, aliases=[f"step-{step + 1}"])
+                        if space_progress is not None:
+                            space_progress({"stage": "artifact_upload_queued", "step": step + 1})
             wandb_run.log(metrics, step=step + 1)
 
     return losses

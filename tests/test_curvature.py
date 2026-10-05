@@ -50,6 +50,25 @@ class CapturingRun:
 
 
 class CurvatureTest(unittest.TestCase):
+    @unittest.skipUnless(torch.cuda.is_available(), "CUDA is unavailable")
+    def test_cuda_curvature_reduction_matches_cpu_with_unused_parameters(self):
+        model = TwoTaskModel()
+        before = snapshot(model)
+        with torch.no_grad():
+            model.weight.fill_(1.4)
+            model.positional_encoding.weight.fill_(1.9)
+        function = SelectorFunction([First(), First()])
+        payloads = torch.ones((7, 1), dtype=torch.long)
+        expected = multi_task_curvature(model, function, torch.nn.MSELoss(), payloads, before)
+        cuda_model = copy.deepcopy(model).cuda()
+        actual = multi_task_curvature(
+            cuda_model, function, torch.nn.MSELoss(), payloads.cuda(),
+            {name: value.cuda() for name, value in before.items()},
+        )
+        torch.testing.assert_close(actual, expected, rtol=1e-10, atol=1e-10)
+        self.assertTrue(cuda_model.training)
+        self.assertTrue(all(p.grad is None for p in cuda_model.parameters()))
+
     def test_task_sum_and_fixed_initial_direction_include_learned_task_curvature(self):
         # L_A=(w-1)^2 and L_B=(w+p-1)^2 at (w,p)=(1,2).
         # A is learned, but its Hessian still contributes to the total:

@@ -45,6 +45,23 @@ class CapturingRun:
 
 
 class GradientMetricsTest(unittest.TestCase):
+    @unittest.skipUnless(torch.cuda.is_available(), "CUDA is unavailable")
+    def test_cuda_reductions_match_analytic_cpu_metrics_with_unused_parameters(self):
+        features = torch.tensor([[1., 0.], [-1., 0.], [0., 1.], [0., 0.]])
+        function = SelectorFunction([First()] * 4)
+        payloads = torch.ones((3, 1), dtype=torch.long)
+        expected = gradient_metrics(LinearProbeModel(features), function, torch.nn.MSELoss(), payloads)
+        model = LinearProbeModel(features).cuda()
+        actual = gradient_metrics(model, function, torch.nn.MSELoss(), payloads.cuda())
+        self.assertEqual(set(actual), set(expected))
+        for name, value in expected.items():
+            if math.isnan(value):
+                self.assertTrue(math.isnan(actual[name]))
+            else:
+                self.assertAlmostEqual(actual[name], value, places=6)
+        self.assertTrue(model.training)
+        self.assertTrue(all(p.grad is None for p in model.parameters()))
+
     def test_analytic_alignment_and_norms_include_positions_and_duplicate_tasks(self):
         model = LinearProbeModel(torch.tensor([[1., 0.], [-1., 0.], [0., 1.], [1., 0.]]))
         function = SelectorFunction([First()] * 4)

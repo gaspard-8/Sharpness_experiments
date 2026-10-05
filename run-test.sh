@@ -29,6 +29,8 @@ export WANDB_MODE=online
 export SHARPNESS_DEVICE=cuda
 export PYTHONUNBUFFERED=1
 export PYTHONDONTWRITEBYTECODE=1
+export PYTHONFAULTHANDLER=1
+export SHARPNESS_RESULTS_DIR="$work_dir/results"
 
 # Configure W&B before importing it. The container's home may be unwritable.
 runtime_dir=$(mktemp -d "$work_dir/.wandb-runtime-XXXXXX")

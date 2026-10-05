@@ -83,6 +83,164 @@ class FakeArtifact:
 
 
 class LossSpacesTest(unittest.TestCase):
+    def test_progress_reports_restarts_without_spending_extra_products(self):
+        diagonal = torch.linspace(-3, 3, 40, dtype=torch.float64)
+        events = []
+        calls = []
+
+        def product(vector):
+            calls.append(1)
+            return diagonal * vector
+
+        _, _, _, solver = _lanczos(
+            product, 40, 100, [], 3, torch.Generator().manual_seed(2), torch.float64,
+            max_basis_dim=16, progress=events.append,
+        )
+        self.assertEqual(len(calls), 100)
+        self.assertEqual(solver["hvp_count"], 100)
+        self.assertEqual(events[0]["hvp_count"], 1)
+        self.assertEqual(events[-1]["hvp_count"], 100)
+        self.assertTrue(any(event["stage"] == "lanczos_restart" for event in events))
+
+    def test_progress_identifies_task_checks_interference_and_completion(self):
+        events = []
+        model = AxisModel()
+        metrics, artifact = loss_spaces(
+            model, SelectorFunction([Parity(), Parity()]), MeanOutputLoss(),
+            torch.tensor([[0], [1]]), delta=0.02, epsilon=0.002,
+            hvp_budget=4, num_directions=2, progress=events.append,
+        )
+        stages = [event["stage"] for event in events]
+        for stage in ("baseline_gradients", "hvp", "eigensystem", "direction_checks",
+                      "interference_start", "artifact_cpu_export", "measurement_complete"):
+            self.assertIn(stage, stages)
+        self.assertEqual(stages.count("task_start"), 2)
+        self.assertEqual(stages.count("task_complete"), 2)
+        self.assertEqual(stages[-1], "measurement_complete")
+        for task, result in artifact["tasks"].items():
+            self.assertEqual(metrics[f"spaces/hvp_count/{task}"], 3)
+            self.assertEqual(result["hvp_count"], 3)
+
+    @unittest.skipUnless(torch.cuda.is_available(), "CUDA is unavailable")
+    def test_cuda_lanczos_keeps_products_and_restarted_algebra_on_device(self):
+        diagonal = torch.linspace(-5, 5, 40, dtype=torch.float64, device="cuda")
+        seed = torch.ones_like(diagonal)
+        calls = 0
+
+        def product(vector):
+            nonlocal calls
+            self.assertEqual(vector.device, diagonal.device)
+            calls += 1
+            return diagonal * vector
+
+        basis, images, reduced, solver = _lanczos(
+            product, 40, 1000, [seed], 2,
+            torch.Generator(device="cuda").manual_seed(19), torch.float64,
+            max_basis_dim=16,
+        )
+        self.assertEqual(calls, 1000)
+        self.assertGreater(solver["lanczos_restarts"], 0)
+        for tensor in (basis, images, reduced):
+            self.assertEqual(tensor.device, diagonal.device)
+        torch.testing.assert_close(basis.T @ basis, torch.eye(basis.shape[1], dtype=torch.float64, device="cuda"))
+        torch.testing.assert_close(images, diagonal[:, None] * basis, atol=1e-10, rtol=1e-10)
+        values = torch.linalg.eigvalsh(reduced)
+        torch.testing.assert_close(values[:2], diagonal[:2], atol=1e-8, rtol=1e-8)
+        torch.testing.assert_close(values[-2:], diagonal[-2:], atol=1e-8, rtol=1e-8)
+
+    def assert_accelerator_spaces_match_cpu(self, device):
+        function = SelectorFunction([Parity(), Parity()])
+        payloads = torch.tensor([[0], [1]])
+        model = AxisModel().to(device)
+        model.train()
+        original = model.weights.detach().clone()
+        model.weights.grad = torch.ones_like(model.weights)
+        previous_grad = model.weights.grad
+        cpu_rng = torch.get_rng_state().clone()
+        accelerator_rng = torch.cuda.get_rng_state() if device == "cuda" else torch.mps.get_rng_state()
+        expected, expected_artifact = loss_spaces(
+            AxisModel(), function, MeanOutputLoss(), payloads,
+            delta=1.0, epsilon=0.5, num_directions=3,
+        )
+
+        original_lanczos = _lanczos
+
+        def checked(hvp, *args, **kwargs):
+            def product(vector):
+                self.assertEqual(vector.device.type, "cuda" if device == "cuda" else "cpu")
+                image = hvp(vector)
+                self.assertEqual(image.device, vector.device)
+                return image
+
+            return original_lanczos(product, *args, **kwargs)
+
+        with patch("src.spaces._lanczos", side_effect=checked):
+            actual, artifact = loss_spaces(
+                model, function, MeanOutputLoss(), payloads.to(device),
+                delta=1.0, epsilon=0.5, num_directions=3,
+            )
+        self.assertEqual(artifact["solver_device"].split(":")[0], "cuda" if device == "cuda" else "cpu")
+        torch.testing.assert_close(actual, expected, atol=1e-5, rtol=1e-5)
+        for name, result in artifact["tasks"].items():
+            for kind in ("tangent", "sharpness"):
+                basis = result[kind]
+                reference = expected_artifact["tasks"][name][kind]
+                torch.testing.assert_close(basis @ basis.T, reference @ reference.T, atol=1e-5, rtol=1e-5)
+        for key, result in artifact["interference"].items():
+            basis = result["directions"]
+            reference = expected_artifact["interference"][key]["directions"]
+            torch.testing.assert_close(basis @ basis.T, reference @ reference.T, atol=1e-5, rtol=1e-5)
+
+        def assert_cpu(value):
+            if isinstance(value, torch.Tensor):
+                self.assertEqual(value.device.type, "cpu")
+            elif isinstance(value, dict):
+                for item in value.values():
+                    assert_cpu(item)
+
+        assert_cpu(artifact)
+        torch.testing.assert_close(model.weights, original)
+        self.assertIs(model.weights.grad, previous_grad)
+        self.assertTrue(model.training)
+        torch.testing.assert_close(torch.get_rng_state(), cpu_rng)
+        current_rng = torch.cuda.get_rng_state() if device == "cuda" else torch.mps.get_rng_state()
+        torch.testing.assert_close(current_rng, accelerator_rng)
+
+    @unittest.skipUnless(torch.cuda.is_available(), "CUDA is unavailable")
+    def test_cuda_spaces_match_cpu_and_export_portable_artifacts(self):
+        self.assert_accelerator_spaces_match_cpu("cuda")
+
+    @unittest.skipUnless(torch.backends.mps.is_available(), "MPS is unavailable")
+    def test_mps_spaces_use_cpu_algebra_and_preserve_device_state(self):
+        self.assert_accelerator_spaces_match_cpu("mps")
+
+    @unittest.skipUnless(torch.cuda.is_available(), "CUDA is unavailable")
+    def test_cuda_transformer_spaces_preserve_state_and_verify_actual_harms(self):
+        model = TransformerModel(d_model=8, num_attn_heads=2, num_layers=1, max_len=4, dropout=0.2).cuda()
+        model.train()
+        parameters = [p.detach().clone() for p in model.parameters()]
+        for p in model.parameters():
+            p.grad = torch.ones_like(p)
+        gradients = [p.grad for p in model.parameters()]
+        rng = torch.cuda.get_rng_state().clone()
+        _, artifact = loss_spaces(
+            model, Parity(), torch.nn.MSELoss(),
+            torch.tensor([[0, 0, 0, 1], [1, 0, 1, 1]], device="cuda"),
+            delta=0.02, epsilon=0.01, num_directions=3, hvp_budget=8,
+        )
+        result = artifact["tasks"]["parity"]
+        for kind in ("tangent", "sharpness"):
+            basis = result[kind]
+            torch.testing.assert_close(basis.T @ basis, torch.eye(basis.shape[1]), atol=1e-5, rtol=1e-5)
+            harms = result[f"{kind}_loss_changes"].amax(dim=1)
+            self.assertTrue(bool((harms <= 0.01).all()) if kind == "tangent" else bool((harms > 0.01).all()))
+        for p, previous, gradient in zip(model.parameters(), parameters, gradients):
+            torch.testing.assert_close(p, previous)
+            self.assertIs(p.grad, gradient)
+            torch.testing.assert_close(p.grad, torch.ones_like(p))
+        self.assertTrue(model.training)
+        torch.testing.assert_close(torch.cuda.get_rng_state(), rng)
+
     def test_thick_restarts_preserve_extreme_modes_images_and_gradient_seed(self):
         diagonal = torch.linspace(-5, 5, 160, dtype=torch.float64)
         diagonal[:3], diagonal[-3:] = -7, 7

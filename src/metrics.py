@@ -11,6 +11,12 @@ from torch.nn.attention import SDPBackend, sdpa_kernel
 from src.functions import BoolFunction, SelectorFunction
 
 
+def _diagnostic_device(parameters: Iterable[t.Tensor]) -> t.device:
+    """Keep diagnostic algebra on CUDA; use CPU for float64 on other backends."""
+    device = next(iter(parameters)).device
+    return device if device.type == "cuda" else t.device("cpu")
+
+
 def _mean_loss(
     criterion: t.nn.modules.loss._Loss,
     outputs: t.Tensor,
@@ -162,6 +168,7 @@ def gradient_metrics(
     parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
     if not parameters:
         raise ValueError("Gradient metrics require trainable model parameters.")
+    compute_device = _diagnostic_device(parameters)
 
     functions = function.functions if isinstance(function, SelectorFunction) else [function]
     names = _unique_metric_names(functions)
@@ -185,25 +192,29 @@ def gradient_metrics(
                     t.autograd.grad(loss, parameters, allow_unused=True)
                     if loss.requires_grad else [None] * len(parameters)
                 )
-                # Move to CPU before converting: a combined device/dtype
-                # transfer can attempt the unsupported float64 cast on MPS.
+                # Flatten on the model device, then transfer once if necessary.
+                # Cast only after transfer: MPS cannot represent float64.
                 gradients.append(t.cat([
-                    gradient.detach().reshape(-1).cpu().double()
-                    if gradient is not None else t.zeros(parameter.numel(), dtype=t.float64)
+                    gradient.detach().reshape(-1)
+                    if gradient is not None else t.zeros_like(parameter).reshape(-1)
                     for parameter, gradient in zip(parameters, task_gradients)
-                ]))
+                ]).to(compute_device).double())
     finally:
         for module, was_training in training_modes:
             module.training = was_training
 
     gradients = t.stack(gradients)
     norms = t.linalg.vector_norm(gradients, dim=1)
+    valid = norms > norm_epsilon
+    normalized = gradients / t.where(valid, norms, t.ones_like(norms))[:, None]
+    alignments = (normalized @ normalized.T).clamp(-1, 1).cpu()
+    norms, valid = norms.cpu(), valid.cpu()
     metrics = {f"gradient_norm/{name}": float(norm) for name, norm in zip(names, norms)}
     for i, name_i in enumerate(names):
         for j in range(i + 1, len(names)):
             alignment = float("nan")
-            if norms[i] > norm_epsilon and norms[j] > norm_epsilon:
-                alignment = float(t.dot(gradients[i] / norms[i], gradients[j] / norms[j]).clamp(-1, 1))
+            if valid[i] and valid[j]:
+                alignment = float(alignments[i, j])
             metrics[f"gradient_alignment/{name_i}_vs_{names[j]}"] = alignment
     return metrics
 
@@ -241,6 +252,7 @@ def multi_task_curvature(
     }
     if not parameters:
         raise ValueError("Curvature requires trainable model parameters.")
+    compute_device = _diagnostic_device(parameters.values())
     if parameters_before.keys() != parameters.keys():
         raise ValueError("parameters_before must contain every trainable parameter exactly once.")
     for name, parameter in parameters.items():
@@ -269,7 +281,7 @@ def multi_task_curvature(
     nodes, weights = leggauss(num_points)
     training_modes = [(module, module.training) for module in model.modules()]
     model.eval()
-    curvature = 0.0
+    curvature = t.zeros((), dtype=t.float64, device=compute_device)
     try:
         # Fused attention backwards may not implement second derivatives.
         # Restrict this diagnostic to math attention and restore the backend
@@ -284,6 +296,7 @@ def multi_task_curvature(
                     for total, gradient in zip(direction, gradients):
                         if gradient is not None:
                             total.add_(gradient.detach())
+            reduction_direction = [vector.to(compute_device).double() for vector in direction]
 
             for node, weight in zip(nodes, weights):
                 point = path_parameters(float((node + 1) / 2))
@@ -305,17 +318,18 @@ def multi_task_curvature(
                         continue
                     directional_derivative = sum(products)
                     hvp = t.autograd.grad(directional_derivative, tuple(point.values()), allow_unused=True)
-                    # Transfer before casting so float64 is never used on MPS.
+                    # CUDA reductions stay on device. The CPU fallback transfers
+                    # before casting so float64 is never used on MPS.
                     value = sum(
-                        float(t.sum(product.detach().cpu().double() * vector.cpu().double()))
-                        for product, vector in zip(hvp, direction) if product is not None
+                        t.sum(product.detach().to(compute_device).double() * vector)
+                        for product, vector in zip(hvp, reduction_direction) if product is not None
                     )
                     curvature += float(weight / 2) * value
     finally:
         for module, was_training in training_modes:
             module.training = was_training
 
-    return {"curvature/multi_task": curvature}
+    return {"curvature/multi_task": float(curvature.cpu())}
 
 
 def average_direction_sharpness(

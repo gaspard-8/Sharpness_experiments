@@ -9,15 +9,26 @@ from torch.func import functional_call
 from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from src.functions import BoolFunction, SelectorFunction
-from src.metrics import _mean_loss, _unique_metric_names
+from src.metrics import _diagnostic_device, _mean_loss, _unique_metric_names
 
 
 def _flatten(parts: tuple[t.Tensor | None, ...], parameters: list[t.Tensor]) -> t.Tensor:
+    # Join on the model device first: CUDA needs no transfer, and the MPS
+    # fallback needs one transfer rather than one per parameter tensor.
     return t.cat([
-        part.detach().reshape(-1).cpu()
-        if part is not None else t.zeros(parameter.numel(), dtype=parameter.dtype)
+        part.detach().reshape(-1)
+        if part is not None else t.zeros_like(parameter).reshape(-1)
         for part, parameter in zip(parts, parameters)
-    ])
+    ]).to(_diagnostic_device(parameters))
+
+
+def _cpu_artifact(value: Any) -> Any:
+    """Copy finished results for portable serialization, after all GPU algebra."""
+    if isinstance(value, t.Tensor):
+        return value.detach().cpu()
+    if isinstance(value, dict):
+        return {key: _cpu_artifact(item) for key, item in value.items()}
+    return value
 
 
 def _project(vector: t.Tensor, basis: t.Tensor) -> t.Tensor:
@@ -30,7 +41,7 @@ def _project(vector: t.Tensor, basis: t.Tensor) -> t.Tensor:
 def _orient_columns(vectors: t.Tensor) -> t.Tensor:
     if vectors.numel():
         indices = vectors.abs().argmax(dim=0)
-        vectors = vectors * vectors[indices, t.arange(vectors.shape[1])].sign()
+        vectors = vectors * vectors[indices, t.arange(vectors.shape[1], device=vectors.device)].sign()
     return vectors
 
 
@@ -43,6 +54,7 @@ def _lanczos(
     generator: t.Generator,
     dtype: t.dtype,
     max_basis_dim: int | None = None,
+    progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> tuple[t.Tensor, t.Tensor, t.Tensor, dict[str, Any]]:
     """Spend a shared HVP budget with bounded, thick-restarted storage.
 
@@ -59,7 +71,8 @@ def _lanczos(
     limit = min(budget, parameter_count, requested_window)
     if budget > limit and parameter_count > limit and limit < 2 * block_size + len(seeds) + 2:
         raise ValueError("The Lanczos window needs room for retained modes, gradient seeds and expansion.")
-    basis = t.empty((parameter_count, limit), dtype=dtype)
+    device = generator.device
+    basis = t.empty((parameter_count, limit), dtype=dtype, device=device)
     images = t.empty_like(basis)
     filled = 0
     product_count = 0
@@ -69,7 +82,7 @@ def _lanczos(
 
     def append(vector: t.Tensor) -> bool:
         nonlocal filled
-        vector = vector.detach().cpu().to(dtype=dtype)
+        vector = vector.detach().to(device=device, dtype=dtype)
         original_norm = t.linalg.vector_norm(vector, dtype=t.float64)
         if not bool(t.isfinite(vector).all()):
             raise ValueError("Non-finite vector during Lanczos measurement.")
@@ -85,7 +98,7 @@ def _lanczos(
 
     def append_random() -> None:
         for _ in range(8):
-            if append(t.randn(parameter_count, generator=generator, dtype=dtype)):
+            if append(t.randn(parameter_count, generator=generator, dtype=dtype, device=device)):
                 return
         raise RuntimeError("Could not restart Lanczos with an independent vector.")
 
@@ -105,7 +118,7 @@ def _lanczos(
             if column == filled:
                 append_random()
                 random_restarts += 1
-            image = hvp(basis[:, column]).detach().cpu().to(dtype=dtype)
+            image = hvp(basis[:, column]).detach().to(device=device, dtype=dtype)
             if image.shape != (parameter_count,) or not bool(t.isfinite(image).all()):
                 raise ValueError("Hessian-vector product must be a finite parameter vector.")
             images[:, column] = image
@@ -113,6 +126,10 @@ def _lanczos(
             product_count += 1
             if filled < limit:
                 append(image)
+            if progress is not None and (product_count == 1 or product_count % 500 == 0
+                                         or product_count == budget or column == parameter_count):
+                progress({"stage": "hvp", "hvp_count": product_count,
+                          "active_dim": column, "lanczos_restarts": lanczos_restarts})
 
         # Only processed columns have cached images. A final partial cycle
         # may have an additional generated, but unprocessed, basis vector.
@@ -131,12 +148,15 @@ def _lanczos(
 
         # Thick restart retains both spectral ends, rather than discarding
         # the accumulated eigenvector estimates and starting over randomly.
+        if progress is not None:
+            progress({"stage": "lanczos_restart", "hvp_count": product_count,
+                      "active_dim": column, "lanczos_restarts": lanczos_restarts})
         _, modes = t.linalg.eigh(reduced)
         ends = sorted(set(range(block_size)) | set(range(column - block_size, column)))
         retained_coordinates = [modes[:, index] for index in ends]
         retained = t.stack(retained_coordinates, dim=1)
         for seed in seeds:
-            coordinate = (active.T @ seed.to(dtype=dtype)).double()
+            coordinate = (active.T @ seed.to(device=device, dtype=dtype)).double()
             original_norm = coordinate.norm()
             coordinate = _project(coordinate, retained)
             norm = coordinate.norm()
@@ -172,7 +192,7 @@ def _lanczos(
 def _complement(vectors: t.Tensor, dimension: int) -> t.Tensor:
     """An orthogonal complement in the small Krylov coordinate space."""
     if vectors.shape[1] == 0:
-        return t.eye(dimension, dtype=t.float64)
+        return t.eye(dimension, dtype=t.float64, device=vectors.device)
     orthogonal, _ = t.linalg.qr(vectors, mode="complete")
     return orthogonal[:, vectors.shape[1]:]
 
@@ -190,7 +210,7 @@ def _maximize_quadratic(hessian: t.Tensor, linear: t.Tensor) -> t.Tensor:
         return eigenvectors[:, -1]
     largest = eigenvalues[-1]
     gaps = largest - eigenvalues
-    scale = max(float(eigenvalues.abs().max()), float(linear_norm), 1e-30)
+    scale = t.maximum(eigenvalues.abs().max(), linear_norm).clamp_min(1e-30)
     at_top = gaps <= 1e-12 * scale
     regular = t.zeros_like(coefficients)
     regular[~at_top] = coefficients[~at_top] / gaps[~at_top]
@@ -200,16 +220,15 @@ def _maximize_quadratic(hessian: t.Tensor, linear: t.Tensor) -> t.Tensor:
         regular[t.where(at_top)[0][-1]] = t.sqrt((1 - regular.square().sum()).clamp_min(0))
         return eigenvectors @ regular
 
-    lower = float(largest)
-    upper = lower + float(linear_norm)
+    lower = largest
+    upper = lower + linear_norm
     floor = t.finfo(t.float64).eps * scale
     for _ in range(80):
         middle = (lower + upper) / 2
         norm = t.linalg.vector_norm(coefficients / (middle - eigenvalues).clamp_min(floor))
-        if norm > 1:
-            lower = middle
-        else:
-            upper = middle
+        # Tensor selection avoids 80 CUDA-to-host synchronizations per solve.
+        lower = t.where(norm > 1, middle, lower)
+        upper = t.where(norm > 1, upper, middle)
     direction = coefficients / (upper - eigenvalues).clamp_min(floor)
     return eigenvectors @ (direction / direction.norm())
 
@@ -225,6 +244,7 @@ def loss_spaces(
     direction_seed: int = 0,
     hvp_budget: int = 10_000,
     intersection_cosine: float = 0.999,
+    progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> tuple[dict[str, float], dict[str, Any]]:
     """Estimate loss spaces with one shared HVP budget per task.
 
@@ -257,6 +277,7 @@ def loss_spaces(
         raise ValueError("Loss spaces require trainable parameters.")
     names = [name for name, _ in named_parameters]
     parameters = [p for _, p in named_parameters]
+    compute_device = _diagnostic_device(parameters)
     parameter_count = sum(p.numel() for p in parameters)
     sizes = [p.numel() for p in parameters]
     cap = min(num_directions, parameter_count)
@@ -274,7 +295,14 @@ def loss_spaces(
     model.eval()
     try:
         with t.enable_grad(), sdpa_kernel(SDPBackend.MATH):
-            generator = t.Generator(device="cpu").manual_seed(direction_seed)
+            generator = t.Generator(device=compute_device).manual_seed(direction_seed)
+
+            def report(stage: str, **fields: Any) -> None:
+                if progress is not None:
+                    progress({"stage": stage, "solver_device": str(compute_device), **fields})
+
+            report("baseline_gradients", task_count=len(tasks), parameter_count=parameter_count,
+                   hvp_budget=hvp_budget, direction_cap=cap)
 
             def task_loss(index: int, direction: t.Tensor | None = None, sign: float = 0.0) -> t.Tensor:
                 inputs, labels = batches[index]
@@ -294,7 +322,7 @@ def loss_spaces(
             task_gradients = []
             for index in range(len(tasks)):
                 loss = task_loss(index)
-                value = float(loss.detach().cpu())
+                value = loss.detach()
                 if not bool(t.isfinite(loss.detach())):
                     raise ValueError("Non-finite baseline task loss during space measurement.")
                 baselines.append(value)
@@ -326,10 +354,12 @@ def loss_spaces(
 
                 return hvp
 
-            def loss_changes(index: int, direction: t.Tensor) -> tuple[float, float]:
+            def loss_changes(index: int, direction: t.Tensor) -> t.Tensor:
                 with t.no_grad():
-                    return tuple(float(task_loss(index, direction, sign).cpu()) - baselines[index]
-                                 for sign in (+1, -1))
+                    # Subtract in float64, matching the previous Python-float
+                    # subtraction. Only the MPS fallback needs a transfer here.
+                    return t.stack([task_loss(index, direction, sign).detach()
+                                    for sign in (+1, -1)]).to(compute_device).double() - baselines[index].to(compute_device).double()
 
             metrics: dict[str, float] = {
                 "spaces/search_dim": float(parameter_count),
@@ -339,15 +369,21 @@ def loss_spaces(
             }
             task_results = {}
             for index, name in enumerate(task_names):
+                report("task_start", task=name, task_index=index + 1, task_count=len(tasks),
+                       hvp_budget=hvp_budget, direction_cap=cap)
                 hvp = make_hvp(index)
                 seeds = [task_gradients[index]] + [gradient for j, gradient in enumerate(task_gradients)
                                                   if j != index]
                 basis, images, reduced, solver = _lanczos(
                     hvp, parameter_count, hvp_budget, seeds, max(cap, len(tasks)),
                     generator, task_gradients[index].dtype,
+                    **({"progress": lambda event: report(event["stage"], task=name,
+                        **{key: value for key, value in event.items() if key != "stage"})}
+                       if progress is not None else {}),
                 )
                 del hvp  # Release this task's differentiation graph.
                 dimension = basis.shape[1]
+                report("eigensystem", task=name, hvp_count=solver["hvp_count"], active_dim=dimension)
                 gradient = task_gradients[index].double()
                 reduced_gradient = (basis.T @ task_gradients[index]).double()
                 eigenvalues, eigenvectors = t.linalg.eigh(reduced)
@@ -362,7 +398,7 @@ def loss_spaces(
                     ritz_images.double().norm(dim=0), eigenvalues[selected].abs(),
                 ).clamp_min(1e-30)
                 result = {
-                    "baseline_loss": baselines[index], "loss_gradient": gradient.float(),
+                    "baseline_loss": float(baselines[index].cpu()), "loss_gradient": gradient.float(),
                     "hvp_count": solver["hvp_count"], "krylov_dim": dimension,
                     "hvp_budget_exhausted": solver["hvp_count"] == hvp_budget,
                     "krylov_restarts": solver["random_restarts"],
@@ -370,7 +406,7 @@ def loss_spaces(
                     "krylov_max_dim": solver["max_basis_dim"],
                     "full_space_covered": solver["full_space_covered"],
                     "ritz_eigenvalues": eigenvalues,
-                    "ritz_checked_indices": t.tensor(selected),
+                    "ritz_checked_indices": t.tensor(selected, device=compute_device),
                     "ritz_residual_norms": residuals, "ritz_relative_residuals": relative,
                 }
                 task_results[name] = result
@@ -384,12 +420,14 @@ def loss_spaces(
 
                 # Tangency to a nonstationary level set means g.T*v = 0.
                 normals = (reduced_gradient / reduced_gradient.norm())[:, None] if gradient.norm() > 0 else t.empty(
-                    (dimension, 0), dtype=t.float64,
+                    (dimension, 0), dtype=t.float64, device=compute_device,
                 )
                 tangent_coordinates = _complement(normals, dimension)
                 tangent_hessian = tangent_coordinates.T @ reduced @ tangent_coordinates
                 tangent_values, tangent_modes = t.linalg.eigh(tangent_hessian)
                 tangent_coordinates = tangent_coordinates @ tangent_modes
+
+                report("direction_checks", task=name)
 
                 for kind, maximize in (("sharpness", True), ("tangent", False)):
                     accepted = []
@@ -403,7 +441,7 @@ def loss_spaces(
                     for search_index in range(min(cap, available)):
                         if maximize:
                             previous = t.stack(accepted_coordinates, dim=1) if accepted_coordinates else t.empty(
-                                (dimension, 0), dtype=t.float64,
+                                (dimension, 0), dtype=t.float64, device=compute_device,
                             )
                             complement = _complement(previous, dimension)
                             coordinate = complement @ _maximize_quadratic(
@@ -417,50 +455,58 @@ def loss_spaces(
                         norm = direction.norm()
                         direction, image = direction / norm, image / norm
                         actual_changes = loss_changes(index, direction)
-                        harm = max(actual_changes)
-                        if not bool(t.isfinite(t.tensor(actual_changes)).all()):
+                        harm = actual_changes.max()
+                        if not bool(t.isfinite(actual_changes).all()):
                             raise ValueError("Non-finite perturbed task loss during space measurement.")
                         if search_index == 0:
-                            metrics[f"spaces/{'max' if maximize else 'min'}_harm/{name}"] = harm
+                            metrics[f"spaces/{'max' if maximize else 'min'}_harm/{name}"] = float(harm)
                         if not (harm > epsilon if maximize else harm <= epsilon):
-                            stop_harm = harm
+                            stop_harm = float(harm)
                             break
                         curvature = t.dot(direction, image)
                         first_order = t.dot(gradient, direction)
                         if maximize:
                             stationarity = delta**2 * image + delta * gradient
                             prior_basis = t.stack(accepted, dim=1) if accepted else t.empty(
-                                (parameter_count, 0), dtype=t.float64,
+                                (parameter_count, 0), dtype=t.float64, device=compute_device,
                             )
                             stationarity = _project(stationarity, prior_basis)
                             residual = stationarity - t.dot(direction, stationarity) * direction
                         else:
                             normal = (gradient / gradient.norm())[:, None] if gradient.norm() > 0 else t.empty(
-                                (parameter_count, 0), dtype=t.float64,
+                                (parameter_count, 0), dtype=t.float64, device=compute_device,
                             )
                             residual = _project(image, normal) - tangent_values[search_index] * direction
                         accepted.append(direction)
                         accepted_coordinates.append(coordinate)
                         changes.append(actual_changes)
-                        curvatures.append(float(curvature))
-                        predicted.append(float(delta * first_order.abs() + delta**2 * curvature / 2))
-                        direction_residuals.append(float(residual.norm()))
+                        curvatures.append(curvature)
+                        predicted.append(delta * first_order.abs() + delta**2 * curvature / 2)
+                        direction_residuals.append(residual.norm())
 
                     directions = t.stack(accepted, dim=1) if accepted else t.empty(
-                        (parameter_count, 0), dtype=t.float64,
+                        (parameter_count, 0), dtype=t.float64, device=compute_device,
                     )
                     oriented = _orient_columns(directions)
                     # Flipping orientation swaps the +/- loss-change columns.
-                    loss_columns = t.tensor(changes, dtype=t.float32).reshape(-1, 2)
+                    loss_columns = t.stack(changes).float() if changes else t.empty(
+                        (0, 2), dtype=t.float32, device=compute_device,
+                    )
                     if accepted:
                         flipped = (directions * oriented).sum(dim=0) < 0
                         loss_columns[flipped] = loss_columns[flipped].flip(dims=[1])
                     result[kind] = oriented.float()
                     result[f"{kind}_loss_changes"] = loss_columns
-                    result[f"{kind}_curvatures"] = t.tensor(curvatures, dtype=t.float64)
-                    result[f"{kind}_predicted_harms"] = t.tensor(predicted, dtype=t.float64)
+                    result[f"{kind}_curvatures"] = t.stack(curvatures) if curvatures else t.empty(
+                        0, dtype=t.float64, device=compute_device,
+                    )
+                    result[f"{kind}_predicted_harms"] = t.stack(predicted) if predicted else t.empty(
+                        0, dtype=t.float64, device=compute_device,
+                    )
                     residual_name = "stationarity_residual_norms" if maximize else "eigen_residual_norms"
-                    result[f"{kind}_{residual_name}"] = t.tensor(direction_residuals, dtype=t.float64)
+                    result[f"{kind}_{residual_name}"] = t.stack(direction_residuals) if direction_residuals else t.empty(
+                        0, dtype=t.float64, device=compute_device,
+                    )
                     result[f"{kind}_stop_harm"] = stop_harm
                     result[f"{kind}_cap_reached"] = len(accepted) == cap
                     result[f"{kind}_candidate_exhausted"] = stop_harm is None and len(accepted) < cap
@@ -468,11 +514,14 @@ def loss_spaces(
                     metrics[f"spaces/{kind}_cap_reached/{name}"] = float(len(accepted) == cap)
                     metrics[f"spaces/{kind}_candidate_exhausted/{name}"] = float(result[f"{kind}_candidate_exhausted"])
                     if direction_residuals:
-                        metrics[f"spaces/{kind}_max_residual/{name}"] = max(direction_residuals)
+                        metrics[f"spaces/{kind}_max_residual/{name}"] = float(t.stack(direction_residuals).max())
                     if stop_harm is not None:
                         metrics[f"spaces/{kind}_stop_harm/{name}"] = stop_harm
+                report("task_complete", task=name, hvp_count=solver["hvp_count"],
+                       tangent_dim=result["tangent"].shape[1], sharpness_dim=result["sharpness"].shape[1])
                 del basis, images, ritz_vectors, ritz_images
 
+            report("interference_start")
             interference = {}
             for source_index, source in enumerate(task_names):
                 for target_index, target in enumerate(task_names):
@@ -485,19 +534,19 @@ def loss_spaces(
                         selected = cosines >= intersection_cosine
                         proposed = _orient_columns(sharp @ left[:, selected])
                         proposed_cosines = cosines[selected]
-                        source_changes = [loss_changes(source_index, vector) for vector in proposed.T]
-                        target_changes = [loss_changes(target_index, vector) for vector in proposed.T]
-                        verified = [j for j in range(proposed.shape[1])
-                                    if max(source_changes[j]) > epsilon
-                                    and max(target_changes[j]) <= epsilon]
+                        source_changes = t.stack([loss_changes(source_index, vector) for vector in proposed.T]) if proposed.shape[1] else t.empty(
+                            (0, 2), dtype=t.float64, device=compute_device,
+                        )
+                        target_changes = t.stack([loss_changes(target_index, vector) for vector in proposed.T]) if proposed.shape[1] else t.empty_like(source_changes)
+                        verified = (source_changes.amax(dim=1) > epsilon) & (target_changes.amax(dim=1) <= epsilon)
                         directions = proposed[:, verified].float()
                         selected_cosines = proposed_cosines[verified].float()
-                        source_changes = t.tensor([source_changes[j] for j in verified]).reshape(-1, 2)
-                        target_changes = t.tensor([target_changes[j] for j in verified]).reshape(-1, 2)
+                        source_changes = source_changes[verified].float()
+                        target_changes = target_changes[verified].float()
                     else:
-                        directions = t.empty((parameter_count, 0), dtype=t.float32)
-                        selected_cosines = t.empty(0, dtype=t.float32)
-                        source_changes = target_changes = t.empty((0, 2), dtype=t.float32)
+                        directions = t.empty((parameter_count, 0), dtype=t.float32, device=compute_device)
+                        selected_cosines = t.empty(0, dtype=t.float32, device=compute_device)
+                        source_changes = target_changes = t.empty((0, 2), dtype=t.float32, device=compute_device)
                     key = f"{source}_to_{target}"
                     interference[key] = {
                         "directions": directions, "cosines": selected_cosines,
@@ -505,6 +554,8 @@ def loss_spaces(
                         "target_loss_changes": target_changes,
                     }
                     metrics[f"spaces/interference_dim/{key}"] = float(directions.shape[1])
+                report("interference_source_complete", task=source)
+            report("artifact_cpu_export")
     finally:
         for module, was_training in modes:
             module.training = was_training
@@ -525,5 +576,8 @@ def loss_spaces(
         "hvp_budget": hvp_budget,
         "krylov_max_dim": int(metrics["spaces/krylov_max_dim"]),
         "tangent_constraint": "orthogonal_to_task_loss_gradient",
+        "solver_device": str(compute_device),
     }
+    artifact = _cpu_artifact(artifact)
+    report("measurement_complete")
     return metrics, artifact

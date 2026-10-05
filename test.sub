@@ -12,7 +12,7 @@ executable              = $(project_dir)/run-test.sh
 arguments               = $(experiment_args)
 
 getenv                  = WANDB_API_KEY, WANDB_PROJECT, WANDB_ENTITY
-environment             = "SHARPNESS_DEVICE=cuda WANDB_MODE=online WANDB_NAME=sharpness-$(ClusterId)-$(ProcId) OMP_NUM_THREADS=2 MKL_NUM_THREADS=2"
+environment             = "SHARPNESS_DEVICE=cuda WANDB_MODE=online WANDB_NAME=sharpness-$(ClusterId)-$(ProcId) SHARPNESS_CPUS=$(request_cpus)"
 transfer_executable     = True
 transfer_input_files    = $(project_dir)/test.py, $(project_dir)/src
 should_transfer_files   = YES

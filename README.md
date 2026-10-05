@@ -259,10 +259,22 @@ numerical error and repeated eigenvalues. This follows the
 diagonalized; the full parameter-by-parameter Hessian is never constructed.
 The returned-direction cap (`space_num_directions=100`) is independent of the
 HVP budget. In the normal experiment, up to 512 Krylov vectors and their Hessian
-images are stored on CPU, costing approximately 417 MB at 101,761 float32
+images are stored on the solver device, costing approximately 417 MB at 101,761 float32
 parameters, plus model, differentiation, retained directions and temporary
-workspace. The 10,000 products are spread across restart cycles; they do not
-require storing 10,000 vectors. Tasks reuse the solver storage.
+workspace. On CUDA, this storage and the task gradients, orthogonalization,
+restarts, projected eigensystems, direction checks and interference algebra
+stay on the GPU. Hessian-vector products do not transfer full parameter vectors
+between CPU and GPU. Finished artifact tensors are copied to CPU for portable
+serialization; logged scalars and adaptive stopping checks still synchronize
+with the host. CPU and MPS models use CPU solver storage because the solver
+requires float64 algebra, which MPS does not support. The 10,000 products are
+spread across restart cycles; they do not require storing 10,000 vectors.
+Tasks reuse the solver storage. The artifact records `solver_device`.
+
+The private direction generator lives on the solver device and preserves the
+training RNG. A fixed seed is repeatable on the same backend; CPU and CUDA
+random starts need not match. Gradient norms, pairwise alignments, and periodic
+curvature reductions also stay on CUDA, exporting only their final metrics.
 
 For small perturbations the both-sign harm is approximated by
 `delta * abs(g_i.T @ v) + delta**2 / 2 * (v.T @ H_i @ v)`.
@@ -517,6 +529,55 @@ adjust after observing the smoke/full run. The final direction searches can
 take substantial time after training. Check cluster runtime limits before the
 full run. The default experiment has no model checkpoints or resume mechanism;
 an evicted job starts training again.
+
+The runner sets numerical-library thread limits from `request_cpus`, including
+OpenBLAS and PyTorch's independent interop pool. Startup prints the effective
+thread counts. During the final loss-space measurement, stdout and
+`results/diagnostic-progress.jsonl` record task/stage, HVP counts every 500
+products, restart counts, Python-process RSS/CPU usage, and CUDA allocated,
+reserved and peak memory. These records distinguish a slow computation from a
+failure in eigendecomposition, direction checks, serialization or W&B shutdown.
+The process memory fields describe Python, not every process in the Condor job.
+Native Python fault tracebacks are enabled; Python exceptions are printed before
+attempting W&B shutdown. An uncatchable kill can still prevent these tracebacks.
+
+### Diagnosing an apparent crash or runtime limit
+
+A W&B `crashed` status means its server stopped receiving heartbeats; it does
+not establish that Condor killed Python. The SDK sends heartbeats independently
+of metric logging, so a long measurement alone should not cause this state
+with a healthy service and connection. See the
+[W&B run states](https://docs.wandb.ai/ref/python/experiments/run/).
+Check the Condor job state and reason on the cluster:
+
+```bash
+condor_q JOB_ID -long -attributes JobStatus,NumJobStarts,NumVacates,NumVacatesByReason,HoldReason,HoldReasonCode,HoldReasonSubCode,AllowedExecuteDuration,AllowedJobDuration,MaxRuntime
+condor_history JOB_ID -limit 1 -long -attributes NumJobStarts,NumVacates,NumVacatesByReason,HoldReason,HoldReasonCode,HoldReasonSubCode,RemoveReason,ExitCode,ExitBySignal,ExitSignal,AllowedExecuteDuration,AllowedJobDuration,MaxRuntime
+```
+
+Use `condor_q` while the job is still queued, and history after it leaves the
+queue. Manual removal records your removal and may obscure earlier evidence;
+also retain the complete event log and W&B `logs/debug-internal.log`.
+Running (R) can follow an earlier eviction and restart. `NumJobStarts` greater
+than 1 and the vacate counters/event log help identify that case; the current
+state alone does not rule out preemption. See the
+[Condor job attributes](https://htcondor.readthedocs.io/en/25.0/classad-attributes/job-classad-attributes.html#NumJobStarts).
+The submit file and runner impose no execution deadline. Standard Condor
+`allowed_execute_duration` and `allowed_job_duration` limit the job, not a
+single Hessian operation; their hold codes are 47 and 46 respectively.
+See the [Condor policy commands](https://htcondor.readthedocs.io/en/25.0/man-pages/condor_submit.html#allowed_execute_duration)
+and [hold codes](https://htcondor.readthedocs.io/en/lts/codes-other-values/hold-reason-codes.html).
+If the job ad confirms an overridable execution-duration limit, an explicit
+24-hour ceiling for a new submission can be supplied with:
+
+```bash
+bash submit-wandb.sh -append 'allowed_execute_duration = 86400'
+```
+
+This sets the job's execution-duration attribute; it does not bypass a site's
+administrative ceiling, preemption policy, or site-specific runtime attribute.
+Verify the effective job ad after submission. No 300-second operation timer
+exists in the experiment code, and no such timer is inferred from W&B's state.
 
 ### Results and image updates
 
