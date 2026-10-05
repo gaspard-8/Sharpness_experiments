@@ -12,6 +12,7 @@ from src.functions import (
     Parity_n,
     SelectorFunction,
     Tribe_ws,
+    Voting_Function,
 )
 from src.model import TransformerModel
 from src.training import sample_batch, train
@@ -50,12 +51,12 @@ def main() -> None:
         "curvature_interval": 100,
         "curvature_num_points": 3,
         "space_delta": 0.02,
-        "space_epsilon": 0.01,
+        "space_epsilon": 0.002,
         "space_num_inputs": 64,
         "space_seed": seed,
-        "space_num_directions": 16,
+        "space_num_directions": 100,
         "space_direction_seed": seed,
-        "space_hvp_budget": 500,
+        "space_hvp_budget": 10_000,
         "space_intersection_cosine": 0.999,
     }
     if args.smoke_test:
@@ -102,7 +103,8 @@ def main() -> None:
         name="mean_tribe_2_5_majority_tail",
     )
 
-    mix = SelectorFunction([
+    # Every selector task now produces binary labels, including continuous means.
+    tasks = [
         ordered,
         repeating,
         majority_first_10,
@@ -111,7 +113,8 @@ def main() -> None:
         average_tribe_majority,
         average_middle_parity,
         average_tribe_tail,
-    ])
+    ]
+    mix = SelectorFunction([Voting_Function(function) for function in tasks])
 
     model = TransformerModel(**model_config).to(device)
     criterion = torch.nn.MSELoss(reduction=loss_config["reduction"])

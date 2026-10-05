@@ -1,4 +1,4 @@
-"""Task-loss directions from matrix-free, fully reorthogonalized Lanczos."""
+"""Task-loss directions from matrix-free, thick-restart block Lanczos."""
 
 from __future__ import annotations
 
@@ -42,31 +42,41 @@ def _lanczos(
     block_size: int,
     generator: t.Generator,
     dtype: t.dtype,
-) -> tuple[t.Tensor, t.Tensor, t.Tensor, int]:
-    """Build a block Krylov space with min(budget, P) operator calls.
+    max_basis_dim: int | None = None,
+) -> tuple[t.Tensor, t.Tensor, t.Tensor, dict[str, Any]]:
+    """Spend a shared HVP budget with bounded, thick-restarted storage.
 
-    Each processed vector costs one HVP. Independent seeds and random restarts
-    at breakdown recover multiple directions in repeated eigenspaces. Keeping
-    H*Q permits residual estimates without spending additional HVPs. Only the
-    small Q.T*H*Q matrix is diagonalized; no P-by-P matrix is allocated.
+    Keep the lowest/highest block_size Ritz modes and task-gradient seeds at
+    each restart. Transform their cached H*Q images with the same coordinates,
+    so retained vectors cost no new HVPs. Expand from their residuals, with
+    independent random vectors at breakdown. Stop at the budget, or once a
+    complete parameter basis has been processed. The reduced eigensystem and
+    both P-by-window arrays remain bounded even when the budget is 10,000.
     """
-    limit = min(budget, parameter_count)
+    requested_window = max(512, 4 * block_size + len(seeds)) if max_basis_dim is None else max_basis_dim
+    if not isinstance(requested_window, int) or requested_window < 1:
+        raise ValueError("max_basis_dim must be a positive integer.")
+    limit = min(budget, parameter_count, requested_window)
+    if budget > limit and parameter_count > limit and limit < 2 * block_size + len(seeds) + 2:
+        raise ValueError("The Lanczos window needs room for retained modes, gradient seeds and expansion.")
     basis = t.empty((parameter_count, limit), dtype=dtype)
     images = t.empty_like(basis)
     filled = 0
-    restarts = 0
+    product_count = 0
+    random_restarts = 0
+    lanczos_restarts = 0
     tolerance = 32 * t.finfo(dtype).eps
 
     def append(vector: t.Tensor) -> bool:
         nonlocal filled
         vector = vector.detach().cpu().to(dtype=dtype)
-        original_norm = t.linalg.vector_norm(vector)
+        original_norm = t.linalg.vector_norm(vector, dtype=t.float64)
         if not bool(t.isfinite(vector).all()):
             raise ValueError("Non-finite vector during Lanczos measurement.")
         if original_norm == 0:
             return False
         vector = _project(vector, basis[:, :filled])
-        norm = t.linalg.vector_norm(vector)
+        norm = t.linalg.vector_norm(vector, dtype=t.float64)
         if norm <= tolerance * original_norm:
             return False
         basis[:, filled] = vector / norm
@@ -89,20 +99,74 @@ def _lanczos(
     while filled < initial_size:
         append_random()
 
-    for column in range(limit):
-        if column == filled:
-            append_random()
-            restarts += 1
-        image = hvp(basis[:, column]).detach().cpu().to(dtype=dtype)
-        if image.shape != (parameter_count,) or not bool(t.isfinite(image).all()):
-            raise ValueError("Hessian-vector product must be a finite parameter vector.")
-        images[:, column] = image
-        if filled < limit:
-            append(image)
+    column = 0
+    while True:
+        while column < limit and product_count < budget:
+            if column == filled:
+                append_random()
+                random_restarts += 1
+            image = hvp(basis[:, column]).detach().cpu().to(dtype=dtype)
+            if image.shape != (parameter_count,) or not bool(t.isfinite(image).all()):
+                raise ValueError("Hessian-vector product must be a finite parameter vector.")
+            images[:, column] = image
+            column += 1
+            product_count += 1
+            if filled < limit:
+                append(image)
 
-    reduced = (basis.T @ images).double()
-    reduced = (reduced + reduced.T) / 2
-    return basis, images, reduced, restarts
+        # Only processed columns have cached images. A final partial cycle
+        # may have an additional generated, but unprocessed, basis vector.
+        active = basis[:, :column]
+        active_images = images[:, :column]
+        reduced = (active.T @ active_images).double()
+        reduced = (reduced + reduced.T) / 2
+        if product_count == budget or column == parameter_count:
+            return active, active_images, reduced, {
+                "hvp_count": product_count,
+                "random_restarts": random_restarts,
+                "lanczos_restarts": lanczos_restarts,
+                "max_basis_dim": limit,
+                "full_space_covered": column == parameter_count,
+            }
+
+        # Thick restart retains both spectral ends, rather than discarding
+        # the accumulated eigenvector estimates and starting over randomly.
+        _, modes = t.linalg.eigh(reduced)
+        ends = sorted(set(range(block_size)) | set(range(column - block_size, column)))
+        retained_coordinates = [modes[:, index] for index in ends]
+        retained = t.stack(retained_coordinates, dim=1)
+        for seed in seeds:
+            coordinate = (active.T @ seed.to(dtype=dtype)).double()
+            original_norm = coordinate.norm()
+            coordinate = _project(coordinate, retained)
+            norm = coordinate.norm()
+            if original_norm > 0 and norm > tolerance * original_norm:
+                retained = t.cat((retained, (coordinate / norm)[:, None]), dim=1)
+        transformed = retained.to(dtype=dtype)
+        retained_basis = active @ transformed
+        retained_images = active_images @ transformed
+        # Reorthogonalize carried full vectors and transform their images
+        # identically. This limits accumulated float32 error across restarts.
+        filled = 0
+        for vector, image in zip(retained_basis.T, retained_images.T):
+            for _ in range(2):
+                coefficients = basis[:, :filled].T @ vector
+                vector = vector - basis[:, :filled] @ coefficients
+                image = image - images[:, :filled] @ coefficients
+            norm = t.linalg.vector_norm(vector, dtype=t.float64)
+            if norm <= tolerance:
+                continue
+            basis[:, filled], images[:, filled] = vector / norm, image / norm
+            filled += 1
+        column = filled  # All retained images have already been computed.
+        lanczos_restarts += 1
+        # Hessian residuals of retained modes seed the next expansion without
+        # consuming products. Repeated/flat eigenvalues use random restarts.
+        retained_count = filled
+        for index in range(retained_count):
+            if filled == limit:
+                break
+            append(images[:, index])
 
 
 def _complement(vectors: t.Tensor, dimension: int) -> t.Tensor:
@@ -157,14 +221,15 @@ def loss_spaces(
     payloads: t.Tensor,
     delta: float,
     epsilon: float,
-    num_directions: int = 16,
+    num_directions: int = 100,
     direction_seed: int = 0,
-    hvp_budget: int = 500,
+    hvp_budget: int = 10_000,
     intersection_cosine: float = 0.999,
 ) -> tuple[dict[str, float], dict[str, Any]]:
     """Estimate loss spaces with one shared HVP budget per task.
 
-    A growing full-parameter block Lanczos space approximates the task Hessian.
+    A thick-restart block Lanczos space approximates the task Hessian with
+    bounded storage. Extreme modes and task gradients survive each restart.
     Sharpness greedily maximizes the second-order, both-sign loss increase in
     that space, including the gradient term. Tangent directions minimize
     curvature in its gradient-orthogonal part. At a stationary point these
@@ -277,7 +342,7 @@ def loss_spaces(
                 hvp = make_hvp(index)
                 seeds = [task_gradients[index]] + [gradient for j, gradient in enumerate(task_gradients)
                                                   if j != index]
-                basis, images, reduced, restarts = _lanczos(
+                basis, images, reduced, solver = _lanczos(
                     hvp, parameter_count, hvp_budget, seeds, max(cap, len(tasks)),
                     generator, task_gradients[index].dtype,
                 )
@@ -298,16 +363,23 @@ def loss_spaces(
                 ).clamp_min(1e-30)
                 result = {
                     "baseline_loss": baselines[index], "loss_gradient": gradient.float(),
-                    "hvp_count": dimension, "krylov_dim": dimension,
-                    "hvp_budget_exhausted": dimension == hvp_budget,
-                    "krylov_restarts": restarts, "ritz_eigenvalues": eigenvalues,
+                    "hvp_count": solver["hvp_count"], "krylov_dim": dimension,
+                    "hvp_budget_exhausted": solver["hvp_count"] == hvp_budget,
+                    "krylov_restarts": solver["random_restarts"],
+                    "lanczos_restarts": solver["lanczos_restarts"],
+                    "krylov_max_dim": solver["max_basis_dim"],
+                    "full_space_covered": solver["full_space_covered"],
+                    "ritz_eigenvalues": eigenvalues,
                     "ritz_checked_indices": t.tensor(selected),
                     "ritz_residual_norms": residuals, "ritz_relative_residuals": relative,
                 }
                 task_results[name] = result
-                metrics[f"spaces/hvp_count/{name}"] = float(dimension)
+                metrics[f"spaces/hvp_count/{name}"] = float(solver["hvp_count"])
                 metrics[f"spaces/krylov_dim/{name}"] = float(dimension)
-                metrics[f"spaces/hvp_budget_exhausted/{name}"] = float(dimension == hvp_budget)
+                metrics[f"spaces/hvp_budget_exhausted/{name}"] = float(solver["hvp_count"] == hvp_budget)
+                metrics[f"spaces/lanczos_restarts/{name}"] = float(solver["lanczos_restarts"])
+                metrics[f"spaces/full_space_covered/{name}"] = float(solver["full_space_covered"])
+                metrics["spaces/krylov_max_dim"] = float(solver["max_basis_dim"])
                 metrics[f"spaces/ritz_max_relative_residual/{name}"] = float(relative.max())
 
                 # Tangency to a nonstationary level set means g.T*v = 0.
@@ -438,8 +510,8 @@ def loss_spaces(
             module.training = was_training
 
     artifact = {
-        "format_version": 3,
-        "method": "matrix_free_block_lanczos_loss_spaces",
+        "format_version": 4,
+        "method": "matrix_free_thick_restart_block_lanczos_loss_spaces",
         "parameter_names": names,
         "parameter_shapes": [tuple(p.shape) for p in parameters],
         "tasks": task_results,
@@ -451,6 +523,7 @@ def loss_spaces(
         "probe_payloads": payloads.detach().cpu(),
         "direction_seed": direction_seed,
         "hvp_budget": hvp_budget,
+        "krylov_max_dim": int(metrics["spaces/krylov_max_dim"]),
         "tangent_constraint": "orthogonal_to_task_loss_gradient",
     }
     return metrics, artifact

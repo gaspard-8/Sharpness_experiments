@@ -83,6 +83,69 @@ class FakeArtifact:
 
 
 class LossSpacesTest(unittest.TestCase):
+    def test_thick_restarts_preserve_extreme_modes_images_and_gradient_seed(self):
+        diagonal = torch.linspace(-5, 5, 160, dtype=torch.float64)
+        diagonal[:3], diagonal[-3:] = -7, 7
+        generator = torch.Generator().manual_seed(19)
+        seed = torch.randn(160, generator=generator, dtype=torch.float64)
+        calls = 0
+
+        def product(vector):
+            nonlocal calls
+            calls += 1
+            return diagonal * vector
+
+        basis, images, reduced, solver = _lanczos(
+            product, 160, 10_000, [seed], 6, generator, torch.float64,
+            max_basis_dim=64,
+        )
+        self.assertEqual(calls, 10_000)
+        self.assertEqual(solver["hvp_count"], calls)
+        self.assertGreater(solver["lanczos_restarts"], 0)
+        self.assertLessEqual(basis.shape[1], 64)
+        self.assertEqual(solver["max_basis_dim"], 64)
+        self.assertFalse(solver["full_space_covered"])
+        torch.testing.assert_close(basis.T @ basis, torch.eye(basis.shape[1], dtype=torch.float64))
+        torch.testing.assert_close(images, diagonal[:, None] * basis, atol=1e-10, rtol=1e-10)
+        torch.testing.assert_close(basis @ (basis.T @ seed), seed, atol=1e-10, rtol=1e-10)
+        eigenvalues = torch.linalg.eigvalsh(reduced)
+        torch.testing.assert_close(eigenvalues[:6], diagonal[:6], atol=1e-9, rtol=1e-9)
+        torch.testing.assert_close(eigenvalues[-6:], diagonal[-6:], atol=1e-9, rtol=1e-9)
+
+    def test_new_budget_and_100_direction_cap_with_actual_task_hessian(self):
+        model = DiagonalLossModel(torch.cat((torch.zeros(550), torch.full((50,), 20.0))))
+        model.weights.grad = torch.ones_like(model.weights)
+        gradients = model.weights.grad
+        parameters = model.weights.detach().clone()
+        torch.manual_seed(23)
+        rng = torch.random.get_rng_state().clone()
+        metrics, artifact = loss_spaces(
+            model, Parity(), MeanOutputLoss(), torch.tensor([[0]]),
+            delta=0.02, epsilon=0.002,
+        )
+        result = artifact["tasks"]["parity"]
+        self.assertEqual(metrics["spaces/hvp_budget"], 10_000)
+        self.assertEqual(metrics["spaces/hvp_count/parity"], 10_000)
+        self.assertEqual(metrics["spaces/direction_cap"], 100)
+        self.assertEqual(metrics["spaces/tangent_dim/parity"], 100)
+        self.assertEqual(metrics["spaces/sharpness_dim/parity"], 50)
+        self.assertEqual(metrics["spaces/tangent_cap_reached/parity"], 1)
+        self.assertGreater(metrics["spaces/lanczos_restarts/parity"], 0)
+        self.assertLessEqual(metrics["spaces/krylov_dim/parity"], 512)
+        self.assertEqual(metrics["spaces/krylov_max_dim"], 512)
+        for kind in ("tangent", "sharpness"):
+            vectors = result[kind].double()
+            torch.testing.assert_close(
+                vectors.T @ vectors, torch.eye(vectors.shape[1], dtype=torch.float64),
+                atol=1e-5, rtol=1e-5,
+            )
+            harms = result[f"{kind}_loss_changes"].max(dim=1).values
+            self.assertTrue(bool((harms <= 0.002).all()) if kind == "tangent" else bool((harms > 0.002).all()))
+        torch.testing.assert_close(model.weights, parameters)
+        self.assertIs(model.weights.grad, gradients)
+        torch.testing.assert_close(model.weights.grad, torch.ones_like(model.weights))
+        torch.testing.assert_close(torch.random.get_rng_state(), rng)
+
     def test_lanczos_spends_500_products_and_recovers_repeated_eigenvalues(self):
         diagonal = torch.cat((torch.zeros(512, dtype=torch.float64), torch.full((8,), 4.0, dtype=torch.float64)))
         calls = []
@@ -91,12 +154,12 @@ class LossSpacesTest(unittest.TestCase):
             calls.append(vector.clone())
             return diagonal * vector
 
-        basis, images, reduced, restarts = _lanczos(
+        basis, images, reduced, solver = _lanczos(
             product, 520, 500, [], 8, torch.Generator().manual_seed(17), torch.float64,
         )
         self.assertEqual(len(calls), 500)
         self.assertEqual(basis.shape, (520, 500))
-        self.assertGreater(restarts, 0)
+        self.assertGreater(solver["random_restarts"], 0)
         torch.testing.assert_close(basis.T @ basis, torch.eye(500, dtype=torch.float64))
         torch.testing.assert_close(images, diagonal[:, None] * basis)
         eigenvalues, eigenvectors = torch.linalg.eigh(reduced)
@@ -130,7 +193,7 @@ class LossSpacesTest(unittest.TestCase):
             self.assertEqual(metrics[f"spaces/hvp_count/{name}"], 12)
             self.assertEqual(metrics[f"spaces/tangent_dim/{name}"], 2)
             self.assertEqual(metrics[f"spaces/sharpness_dim/{name}"], 2)
-        self.assertEqual(artifact["format_version"], 3)
+        self.assertEqual(artifact["format_version"], 4)
         self.assertNotIn("search_steps", artifact)
         self.assertNotIn("search_restarts", artifact)
 
@@ -306,8 +369,9 @@ class LossSpacesTest(unittest.TestCase):
             [step for step, metrics in run.logged if "spaces/search_dim" in metrics],
             [5],
         )
-        self.assertEqual(measured.call_args.kwargs["hvp_budget"], 500)
-        self.assertEqual(run.artifacts[0][0].metadata["hvp_budget"], 500)
+        self.assertEqual(measured.call_args.kwargs["hvp_budget"], 10_000)
+        self.assertEqual(measured.call_args.kwargs["num_directions"], 100)
+        self.assertEqual(run.artifacts[0][0].metadata["hvp_budget"], 10_000)
 
     def test_training_logs_real_lanczos_results_and_serializes_directions(self):
         model = AxisModel()
@@ -324,8 +388,8 @@ class LossSpacesTest(unittest.TestCase):
         self.assertEqual(len(run.artifacts), 1)
         artifact, aliases = run.artifacts[0]
         self.assertEqual(aliases, ["step-2"])
-        self.assertEqual(artifact.saved["format_version"], 3)
-        self.assertEqual(artifact.saved["hvp_budget"], 500)
+        self.assertEqual(artifact.saved["format_version"], 4)
+        self.assertEqual(artifact.saved["hvp_budget"], 10_000)
         self.assertEqual(artifact.saved["parameter_names"], ["weights"])
         final_step, metrics = run.logged[-1]
         self.assertEqual(final_step, 2)

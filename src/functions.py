@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
+import math
 import re
-from typing import Optional
+from typing import Callable, Optional
 
 import torch as t
 
@@ -58,6 +59,113 @@ class BoolFunction(ABC):
 
         threshold = 0.5 if self.negative_value == 0 else 0.0
         return (outputs >= threshold).eq(labels >= threshold)
+
+class _VotingFunction(BoolFunction):
+    """Binary decisions with ties assigned to the negative label."""
+
+    bool_output = True
+
+    def avg_sensitivity(self, seq_len: int) -> float:
+        raise NotImplementedError("Average sensitivity is not implemented for voting functions.")
+
+    def sharpness(self, seq_len: int) -> float:
+        raise NotImplementedError("Sharpness is not implemented for voting functions.")
+
+    def accuracy_mask(
+        self, outputs: t.Tensor, labels: t.Tensor, inputs: t.Tensor
+    ) -> t.Tensor:
+        threshold = 0.5 if self.negative_value == 0 else 0.0
+        return (outputs > threshold).eq(labels > threshold)
+
+
+class Voting_Function(_VotingFunction):
+    """Threshold a function's output without changing its input.
+
+    The source's negative_value selects a boundary of 0.5 for 0/1 scores
+    or 0 for signed scores. Output encoding defaults to the source encoding.
+    Plain callables default to 0/1; threshold can specify another boundary.
+    Ties return 0 (or -1 for signed labels), keeping outputs binary.
+    """
+
+    def __init__(
+        self,
+        function: Callable[[t.Tensor], t.Tensor],
+        negative_value: Optional[int] = None,
+        name: Optional[str] = None,
+        *,
+        threshold: Optional[float] = None,
+    ):
+        if not callable(function):
+            raise TypeError("Voting_Function requires a callable function.")
+        source_negative = getattr(function, "negative_value", 0)
+        if negative_value is None:
+            negative_value = source_negative
+        if negative_value not in (0, -1):
+            raise ValueError("Voting_Function negative_value must be 0 or -1.")
+        super().__init__(negative_value=negative_value, name=name)
+        self.function = function
+        if threshold is None:
+            threshold = 0.5 if source_negative == 0 else 0.0
+        self.threshold = threshold
+        if not math.isfinite(self.threshold):
+            raise ValueError("Voting_Function threshold must be finite.")
+
+    @property
+    def metric_name(self) -> str:
+        source_name = getattr(self.function, "metric_name", None)
+        if source_name is None:
+            source_name = getattr(self.function, "__name__", type(self.function).__name__)
+        return self._name or f"voting_{source_name}"
+
+    def __call__(self, x: t.Tensor) -> t.Tensor:
+        return self.postprocess((self.function(x) > self.threshold).long())
+
+
+class WeightedVoting(_VotingFunction):
+    """Vote on the first n bits using n finite, possibly signed weights.
+
+    For 0/1 inputs the score is sum(a_i * (2*x_i - 1)). Set
+    input_negative_value=-1 for signed inputs and the score sum(a_i*x_i).
+    Positive scores return 1; zero and negative scores return negative_value.
+    Additional input bits are ignored.
+    """
+
+    def __init__(
+        self,
+        n: int,
+        weights: list[float],
+        negative_value: int = 0,
+        name: Optional[str] = None,
+        *,
+        input_negative_value: int = 0,
+    ):
+        super().__init__(negative_value=negative_value, name=name)
+        if isinstance(n, bool) or not isinstance(n, int) or n < 1:
+            raise ValueError("WeightedVoting requires a positive integer n.")
+        if len(weights) != n:
+            raise ValueError("WeightedVoting requires exactly n weights.")
+        self.weights = tuple(float(weight) for weight in weights)
+        if not all(math.isfinite(weight) for weight in self.weights):
+            raise ValueError("WeightedVoting weights must be finite.")
+        if negative_value not in (0, -1) or input_negative_value not in (0, -1):
+            raise ValueError("WeightedVoting input and output negative values must be 0 or -1.")
+        self.n = n
+        self.input_negative_value = input_negative_value
+
+    @property
+    def metric_name(self) -> str:
+        return self._name or f"weighted_voting_{self.n}"
+
+    def __call__(self, x: t.Tensor) -> t.Tensor:
+        if x.ndim == 0 or x.size(-1) < self.n:
+            raise ValueError("WeightedVoting requires at least n input bits.")
+        dtype = t.float64 if x.dtype == t.float64 else t.float32
+        votes = x[..., :self.n].to(dtype=dtype)
+        if self.input_negative_value == 0:
+            votes = 2 * votes - 1
+        weights = t.tensor(self.weights, device=x.device, dtype=dtype)
+        return self.postprocess(((votes * weights).sum(dim=-1) > 0).long())
+
 
 class Parity(BoolFunction):
     bool_output = True
@@ -383,9 +491,11 @@ class MeanOfFunctions(BoolFunction):
     bool_output = False
 
     def __init__(self, functions: list[BoolFunction], name: Optional[str] = None):
-        super().__init__(name=name)
         if not functions:
             raise ValueError("MeanOfFunctions needs at least one function.")
+        # A mean of signed scores is itself signed, including for voting wrappers.
+        negative_value = -1 if all(function.negative_value != 0 for function in functions) else 0
+        super().__init__(negative_value=negative_value, name=name)
         self.functions = list(functions)
 
     def avg_sensitivity(self, seq_len: int) -> float:

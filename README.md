@@ -1,5 +1,39 @@
 # Sharpness experiments
 
+`Voting_Function(function)` evaluates the wrapped function on the same input
+and converts its score into a binary label. It uses a strict `> 0.5` decision
+for 0/1 scores and `> 0` for signed scores, inferred from the function's
+`negative_value`. Ties return the negative label, so signed outputs remain
+-1/1 even when the score is zero. Output encoding defaults to the wrapped
+function's encoding; `negative_value=0` or `-1` can override it without
+changing the score threshold. Plain callables default to a threshold of 0.5;
+use `threshold=0` for signed callable scores or another explicit boundary.
+The wrapper reports binary accuracy with the same strict decision rule.
+
+`WeightedVoting(n, weights)` uses exactly `n` finite weights on the first `n`
+payload bits, ignoring extra bits. For 0/1 inputs it computes
+`sum(a_i * (2*x_i - 1)) > 0`; equal positive weights reproduce strict majority.
+For -1/1 inputs, set `input_negative_value=-1` to decide directly from
+`sum(a_i*x_i) > 0`. Negative and zero weights are allowed. Output labels
+default to 0/1; set `negative_value=-1` for -1/1. Zero scores return the
+negative label.
+
+```python
+from src.functions import Isordered, Mean, Voting_Function, WeightedVoting
+
+majority = Voting_Function(Mean())
+ordered_vote = Voting_Function(Isordered(n=0, m=10))
+weighted = WeightedVoting(3, [2.0, 1.0, 1.0])
+signed_weighted = WeightedVoting(3, [2.0, 1.0, 1.0],
+                                 input_negative_value=-1, negative_value=-1)
+```
+
+`test.py` wraps all eight selector tasks with `Voting_Function`, so every
+task has binary targets and binary accuracy. Metric names gain a `voting_`
+prefix, unless a custom wrapper `name` is supplied. A mean of entirely signed
+functions uses the signed threshold; for means mixing output encodings,
+choose the intended boundary with `threshold` explicitly.
+
 `Majority_nm(n, m)` computes a strict majority over `x[..., n:m]`: indices are
 zero-based, `n` is included, and `m` is excluded. Ties return the negative
 label, and inputs must contain at least `m` bits.
@@ -27,8 +61,8 @@ in overall accuracy.
 full-payload behavior. Bounds must be integers, with `n >= 0` and a window
 of at least two bits; an explicit `m` must not exceed the input length.
 Only pairs fully inside the window count. Selector prefixes are removed
-before applying these bounds. `test.py` explicitly uses `[0, 21)` for both
-functions, covering its 21-bit payload.
+before applying these bounds. `test.py` explicitly uses `[0, 10)` for both
+functions, covering the first 10 bits of its 21-bit payload.
 
 `Isordered(n, m)` assigns a penalty of `2` to each overlapping `10` pair and `0`
 to `00`, `01`, and `11`. It returns one minus the mean penalty:
@@ -187,7 +221,8 @@ Training-batch loss and accuracy use the pre-update predictions.
 The experiment measures these directions **once, after the final optimizer
 update**. Set `space_delta` to a positive global parameter-vector norm to
 enable the measure; `train()` disables it by default and `test.py` uses `0.02`.
-`space_epsilon` is the allowed increase in a task's mean loss (`0.01`).
+`space_epsilon` is the allowed increase in a task's mean loss (`0.002`, reduced
+from `0.01` by a factor of five to let more directions qualify as sharp).
 The mean loss uses the configured criterion on `space_num_inputs` fixed uniform
 payloads per task (`64` in `test.py`), with a private `space_seed`. All trainable
 parameters, including positional embeddings, participate. The measure preserves
@@ -200,25 +235,34 @@ has harm at most `space_epsilon`; a sharpness direction has harm above it.
 Loss decreases are allowed. The check uses both signs so changing the sign of
 a reported direction does not change its classification.
 
-The implementation uses **matrix-free block Lanczos**, replacing the previous
-perturbed-loss optimizer. `space_hvp_budget` is **500 Hessian-vector products
+The implementation uses **matrix-free thick-restart block Lanczos**.
+`space_hvp_budget` is **10,000 Hessian-vector products
 per task**, shared by the tangent and sharpness calculations. For the eight
-tasks in `test.py`, this costs 4,000 HVPs in total for this final measure.
-If the parameter count is below the budget, the search stops after covering
-the complete parameter space. The normal experiment uses 500; `--smoke-test`
+tasks in `test.py`, this allows 80,000 HVPs in total for this final measure.
+If the complete parameter basis fits in the active window, the search stops
+once it has been covered. The normal experiment uses 10,000; `--smoke-test`
 uses 4. Other periodic curvature diagnostics have their own existing HVP cost.
 
 Each HVP differentiates the task's mean loss at the final model parameters.
 The gradient graph is reused within a task. Lanczos starts with task gradients
 and independent full-parameter random vectors, then repeatedly applies the
-Hessian to grow an adaptive Krylov space. Two-pass reorthogonalization and
-random restarts at breakdown handle numerical error and repeated eigenvalues.
+Hessian to grow an adaptive Krylov space. The active window is bounded by
+`min(parameter_count, hvp_budget, max(512, 4 * block_size + task_count))`, where
+`block_size = max(direction_cap, task_count)`. At each thick restart, the lowest
+and highest `block_size` Ritz modes and independent task-gradient components
+are retained. Their cached Hessian images are transformed with them, and their
+residuals seed the next expansion. Each new HVP therefore improves the existing
+estimates. Two-pass reorthogonalization and random starts at breakdown handle
+numerical error and repeated eigenvalues. This follows the
+[thick-restart Lanczos approach](https://doi.org/10.1137/S0895479898334605).
 `space_direction_seed` controls a private RNG. A small projected Hessian is
 diagonalized; the full parameter-by-parameter Hessian is never constructed.
-The returned-direction cap (`space_num_directions=16`) is independent of the
-HVP budget. Both the Krylov vectors and their Hessian images are stored on CPU,
-costing approximately 407 MB for 500 float32 vectors each at 101,761 parameters,
-plus model, differentiation and temporary workspace. Tasks reuse this storage.
+The returned-direction cap (`space_num_directions=100`) is independent of the
+HVP budget. In the normal experiment, up to 512 Krylov vectors and their Hessian
+images are stored on CPU, costing approximately 417 MB at 101,761 float32
+parameters, plus model, differentiation, retained directions and temporary
+workspace. The 10,000 products are spread across restart cycles; they do not
+require storing 10,000 vectors. Tasks reuse the solver storage.
 
 For small perturbations the both-sign harm is approximated by
 `delta * abs(g_i.T @ v) + delta**2 / 2 * (v.T @ H_i @ v)`.
@@ -239,12 +283,12 @@ stops at its first rejecting candidate, its direction cap, or exhaustion of
 its available Krylov directions. The eigenvalue/quadratic calculation proposes
 directions; it does not find exact minima or maxima of the nonlinear loss at
 finite delta. A failed candidate does not certify that no other safe or harmful
-direction exists, and 500 products do not guarantee eigenpair convergence.
+direction exists, and 10,000 products do not guarantee eigenpair convergence.
 
 W&B logs `spaces/search_dim` and `spaces/parameter_count` (both the number of
 trainable parameters), `spaces/direction_cap`, and per-task
 `spaces/tangent_dim/<task>` / `spaces/sharpness_dim/<task>`. The dimensions count
-the independent accepted directions found, each capped at 16 by default.
+the independent accepted directions found, each capped at 100 by default.
 `spaces/tangent_cap_reached/<task>` / `spaces/sharpness_cap_reached/<task>` are
 1 when the relevant cap is reached; additional directions may exist. These
 counts do not certify the full spaces' dimensions. The searches are independent,
@@ -256,7 +300,12 @@ the rejecting direction's harm. `spaces/<kind>_candidate_exhausted/<task>`
 records exhaustion of the available Krylov directions before reaching the cap.
 W&B also logs `spaces/hvp_budget`, `spaces/hvp_count/<task>`,
 `spaces/krylov_dim/<task>`, and `spaces/hvp_budget_exhausted/<task>`.
-`spaces/ritz_max_relative_residual/<task>` checks the first/last up to 16
+The HVP count is the total number of operator calls across all cycles; the
+Krylov dimension is the final active basis size. `spaces/krylov_max_dim` records
+the storage bound, `spaces/lanczos_restarts/<task>` counts thick restart cycles,
+and `spaces/full_space_covered/<task>` is 1 only when a complete parameter basis
+was processed. These measures distinguish computation from active storage.
+`spaces/ritz_max_relative_residual/<task>` checks the first/last up to 100
 Hessian Ritz modes using cached Hessian images without extra HVPs. A small
 residual measures the eigen-equation error; it does not certify that the
 estimated eigenvalue is globally smallest or largest. Per-kind maximum
@@ -279,7 +328,7 @@ flags, HVP counts, Ritz eigenvalues and residual diagnostics. Each direction
 matrix has one row per trainable
 parameter coordinate and one column per found unit direction. Multiply a
 column by delta, then split and reshape in `parameter_names` / `parameter_shapes`
-order to obtain the parameter perturbation. Artifact format version 3 records
+order to obtain the parameter perturbation. Artifact format version 4 records
 full vectors directly; no reduced search basis is required. The stored
 loss-change columns correspond to `+delta` and `-delta` in that order.
 `<kind>_curvatures` stores `v.T @ H_i @ v`; `<kind>_predicted_harms` stores the
@@ -287,6 +336,32 @@ second-order approximation. Tangent residuals use the gradient-projected
 Hessian; sharpness residuals use the quadratic objective projected off earlier
 sharpness directions. Individual directions are checked, but nonlinear loss can behave
 differently along combinations of them.
+
+### Readable reports from a saved run
+
+Generate a task summary, a pairwise interference matrix, and numerical-quality
+tables from the local W&B summaries:
+
+```bash
+env/bin/python scripts/summarize_spaces.py unzipped_results \
+  --output-dir results/spaces_report
+```
+
+Pass either an extracted results directory or a specific `wandb-summary.json`.
+Directories are searched recursively, with one report per run. The script
+reads the saved `config.yaml` using the project's existing environment and
+preserves the original measurements. No training or W&B connection is needed.
+
+Open `results/spaces_report/index.html`, or a run's `report.html` / `report.md`.
+Each run also gets `task_summary.csv`, `interference_matrix.csv`,
+`interference_pairs.csv`, `numerical_quality.csv`, and `metrics.csv`.
+The last CSV preserves every original `spaces/` value with a group and an
+explanation. `report.json` retains the grouped data with full numeric precision.
+
+The interference matrix uses **safe tasks as rows and harmed tasks as columns**:
+row A / column B reads the original `B_to_A` metric. Capped counts are marked
+explicitly. Missing measurements stay missing, and zero overlap is interpreted
+only within the selected direction bases.
 
 Training logs Hahn–Rofin average direction sharpness every 100 completed
 optimizer steps. The estimate is the mean squared change in model predictions

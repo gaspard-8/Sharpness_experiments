@@ -1,0 +1,9 @@
+id,task,safe_directions,safe_cap_reached,safe_stop_reason,sharp_directions,sharp_cap_reached,sharp_stop_reason,first_safe_loss_increase,first_sharp_loss_increase,first_sharp_over_epsilon,next_sharp_loss_increase,next_safe_loss_increase
+T1,isordered_0_10,16,1,Direction cap reached,1,0,Next candidate within epsilon,-6.700202357023954e-05,0.08533891953993589,8.533891953993589,0.00868701294530183,
+T2,isrepeating_0_10,16,1,Direction cap reached,1,0,Next candidate within epsilon,-3.0872528441250324e-05,0.08075423946138471,8.075423946138471,0.006214828579686582,
+T3,Majority_0_10,16,1,Direction cap reached,3,0,Next candidate within epsilon,-6.861833389848471e-05,0.05238872900372371,5.238872900372371,0.00856519624358043,
+T4,tribe_3_4,16,1,Direction cap reached,2,0,Next candidate within epsilon,-2.660905010998249e-06,0.0503610682208091,5.03610682208091,0.004577133571729064,
+T5,mean_majority_parity_5,16,1,Direction cap reached,5,0,Next candidate within epsilon,-0.0001267688348889351,0.08949707681313157,8.949707681313157,0.004781818483024836,
+T6,mean_tribe_majority_tail,16,1,Direction cap reached,4,0,Next candidate within epsilon,0.00038473354652523994,0.043693047715350986,4.3693047715350986,0.0043731105979532,
+T7,mean_middle_majority_parity_10,16,1,Direction cap reached,5,0,Next candidate within epsilon,-0.00020206160843372345,0.1366319451481104,13.663194514811039,0.009107327088713646,
+T8,mean_tribe_2_5_majority_tail,16,1,Direction cap reached,3,0,Next candidate within epsilon,-0.00018342630937695503,0.11606043018400669,11.606043018400669,0.009969951584935188,

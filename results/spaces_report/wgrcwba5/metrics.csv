@@ -1,0 +1,181 @@
+group,metric,value,scope,meaning
+Settings,spaces/direction_cap,16,All tasks,Maximum accepted directions per task and kind.
+Settings,spaces/hvp_budget,500,All tasks,"Hessian-vector product budget per task, shared by both kinds."
+Search flags,spaces/hvp_budget_exhausted/Majority_0_10,1,Majority_0_10,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/isordered_0_10,1,isordered_0_10,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/isrepeating_0_10,1,isrepeating_0_10,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/mean_majority_parity_5,1,mean_majority_parity_5,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/mean_middle_majority_parity_10,1,mean_middle_majority_parity_10,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/mean_tribe_2_5_majority_tail,1,mean_tribe_2_5_majority_tail,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/mean_tribe_majority_tail,1,mean_tribe_majority_tail,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/tribe_3_4,1,tribe_3_4,1 means all allowed HVPs were used; this is expected at the configured budget.
+Computation,spaces/hvp_count/Majority_0_10,500,Majority_0_10,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/isordered_0_10,500,isordered_0_10,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/isrepeating_0_10,500,isrepeating_0_10,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/mean_majority_parity_5,500,mean_majority_parity_5,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/mean_middle_majority_parity_10,500,mean_middle_majority_parity_10,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/mean_tribe_2_5_majority_tail,500,mean_tribe_2_5_majority_tail,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/mean_tribe_majority_tail,500,mean_tribe_majority_tail,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/tribe_3_4,500,tribe_3_4,Actual HVP operator calls for this task.
+Interference,spaces/interference_dim/Majority_0_10_to_isordered_0_10,0,Majority_0_10_to_isordered_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/Majority_0_10_to_isrepeating_0_10,0,Majority_0_10_to_isrepeating_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/Majority_0_10_to_mean_majority_parity_5,0,Majority_0_10_to_mean_majority_parity_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/Majority_0_10_to_mean_middle_majority_parity_10,0,Majority_0_10_to_mean_middle_majority_parity_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/Majority_0_10_to_mean_tribe_2_5_majority_tail,0,Majority_0_10_to_mean_tribe_2_5_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/Majority_0_10_to_mean_tribe_majority_tail,0,Majority_0_10_to_mean_tribe_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/Majority_0_10_to_tribe_3_4,0,Majority_0_10_to_tribe_3_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isordered_0_10_to_Majority_0_10,0,isordered_0_10_to_Majority_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isordered_0_10_to_isrepeating_0_10,0,isordered_0_10_to_isrepeating_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isordered_0_10_to_mean_majority_parity_5,0,isordered_0_10_to_mean_majority_parity_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isordered_0_10_to_mean_middle_majority_parity_10,0,isordered_0_10_to_mean_middle_majority_parity_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isordered_0_10_to_mean_tribe_2_5_majority_tail,0,isordered_0_10_to_mean_tribe_2_5_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isordered_0_10_to_mean_tribe_majority_tail,0,isordered_0_10_to_mean_tribe_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isordered_0_10_to_tribe_3_4,0,isordered_0_10_to_tribe_3_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isrepeating_0_10_to_Majority_0_10,0,isrepeating_0_10_to_Majority_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isrepeating_0_10_to_isordered_0_10,0,isrepeating_0_10_to_isordered_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isrepeating_0_10_to_mean_majority_parity_5,0,isrepeating_0_10_to_mean_majority_parity_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isrepeating_0_10_to_mean_middle_majority_parity_10,0,isrepeating_0_10_to_mean_middle_majority_parity_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isrepeating_0_10_to_mean_tribe_2_5_majority_tail,0,isrepeating_0_10_to_mean_tribe_2_5_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isrepeating_0_10_to_mean_tribe_majority_tail,0,isrepeating_0_10_to_mean_tribe_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/isrepeating_0_10_to_tribe_3_4,0,isrepeating_0_10_to_tribe_3_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_majority_parity_5_to_Majority_0_10,0,mean_majority_parity_5_to_Majority_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_majority_parity_5_to_isordered_0_10,0,mean_majority_parity_5_to_isordered_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_majority_parity_5_to_isrepeating_0_10,0,mean_majority_parity_5_to_isrepeating_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_majority_parity_5_to_mean_middle_majority_parity_10,0,mean_majority_parity_5_to_mean_middle_majority_parity_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_majority_parity_5_to_mean_tribe_2_5_majority_tail,0,mean_majority_parity_5_to_mean_tribe_2_5_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_majority_parity_5_to_mean_tribe_majority_tail,0,mean_majority_parity_5_to_mean_tribe_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_majority_parity_5_to_tribe_3_4,0,mean_majority_parity_5_to_tribe_3_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_middle_majority_parity_10_to_Majority_0_10,0,mean_middle_majority_parity_10_to_Majority_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_middle_majority_parity_10_to_isordered_0_10,0,mean_middle_majority_parity_10_to_isordered_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_middle_majority_parity_10_to_isrepeating_0_10,0,mean_middle_majority_parity_10_to_isrepeating_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_middle_majority_parity_10_to_mean_majority_parity_5,0,mean_middle_majority_parity_10_to_mean_majority_parity_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_middle_majority_parity_10_to_mean_tribe_2_5_majority_tail,0,mean_middle_majority_parity_10_to_mean_tribe_2_5_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_middle_majority_parity_10_to_mean_tribe_majority_tail,0,mean_middle_majority_parity_10_to_mean_tribe_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_middle_majority_parity_10_to_tribe_3_4,0,mean_middle_majority_parity_10_to_tribe_3_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_2_5_majority_tail_to_Majority_0_10,0,mean_tribe_2_5_majority_tail_to_Majority_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_2_5_majority_tail_to_isordered_0_10,0,mean_tribe_2_5_majority_tail_to_isordered_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_2_5_majority_tail_to_isrepeating_0_10,0,mean_tribe_2_5_majority_tail_to_isrepeating_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_2_5_majority_tail_to_mean_majority_parity_5,0,mean_tribe_2_5_majority_tail_to_mean_majority_parity_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_2_5_majority_tail_to_mean_middle_majority_parity_10,0,mean_tribe_2_5_majority_tail_to_mean_middle_majority_parity_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_2_5_majority_tail_to_mean_tribe_majority_tail,0,mean_tribe_2_5_majority_tail_to_mean_tribe_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_2_5_majority_tail_to_tribe_3_4,0,mean_tribe_2_5_majority_tail_to_tribe_3_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_majority_tail_to_Majority_0_10,0,mean_tribe_majority_tail_to_Majority_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_majority_tail_to_isordered_0_10,0,mean_tribe_majority_tail_to_isordered_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_majority_tail_to_isrepeating_0_10,0,mean_tribe_majority_tail_to_isrepeating_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_majority_tail_to_mean_majority_parity_5,0,mean_tribe_majority_tail_to_mean_majority_parity_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_majority_tail_to_mean_middle_majority_parity_10,0,mean_tribe_majority_tail_to_mean_middle_majority_parity_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_majority_tail_to_mean_tribe_2_5_majority_tail,0,mean_tribe_majority_tail_to_mean_tribe_2_5_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/mean_tribe_majority_tail_to_tribe_3_4,0,mean_tribe_majority_tail_to_tribe_3_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_4_to_Majority_0_10,0,tribe_3_4_to_Majority_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_4_to_isordered_0_10,0,tribe_3_4_to_isordered_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_4_to_isrepeating_0_10,0,tribe_3_4_to_isrepeating_0_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_4_to_mean_majority_parity_5,0,tribe_3_4_to_mean_majority_parity_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_4_to_mean_middle_majority_parity_10,0,tribe_3_4_to_mean_middle_majority_parity_10,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_4_to_mean_tribe_2_5_majority_tail,0,tribe_3_4_to_mean_tribe_2_5_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_4_to_mean_tribe_majority_tail,0,tribe_3_4_to_mean_tribe_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
+Computation,spaces/krylov_dim/Majority_0_10,500,Majority_0_10,Dimension of the adaptive Hessian approximation space.
+Computation,spaces/krylov_dim/isordered_0_10,500,isordered_0_10,Dimension of the adaptive Hessian approximation space.
+Computation,spaces/krylov_dim/isrepeating_0_10,500,isrepeating_0_10,Dimension of the adaptive Hessian approximation space.
+Computation,spaces/krylov_dim/mean_majority_parity_5,500,mean_majority_parity_5,Dimension of the adaptive Hessian approximation space.
+Computation,spaces/krylov_dim/mean_middle_majority_parity_10,500,mean_middle_majority_parity_10,Dimension of the adaptive Hessian approximation space.
+Computation,spaces/krylov_dim/mean_tribe_2_5_majority_tail,500,mean_tribe_2_5_majority_tail,Dimension of the adaptive Hessian approximation space.
+Computation,spaces/krylov_dim/mean_tribe_majority_tail,500,mean_tribe_majority_tail,Dimension of the adaptive Hessian approximation space.
+Computation,spaces/krylov_dim/tribe_3_4,500,tribe_3_4,Dimension of the adaptive Hessian approximation space.
+Loss changes,spaces/max_harm/Majority_0_10,0.05238872900372371,Majority_0_10,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/isordered_0_10,0.08533891953993589,isordered_0_10,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/isrepeating_0_10,0.08075423946138471,isrepeating_0_10,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/mean_majority_parity_5,0.08949707681313157,mean_majority_parity_5,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/mean_middle_majority_parity_10,0.1366319451481104,mean_middle_majority_parity_10,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/mean_tribe_2_5_majority_tail,0.11606043018400669,mean_tribe_2_5_majority_tail,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/mean_tribe_majority_tail,0.043693047715350986,mean_tribe_majority_tail,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/tribe_3_4,0.0503610682208091,tribe_3_4,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/min_harm/Majority_0_10,-6.861833389848471e-05,Majority_0_10,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/isordered_0_10,-6.700202357023954e-05,isordered_0_10,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/isrepeating_0_10,-3.0872528441250324e-05,isrepeating_0_10,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/mean_majority_parity_5,-0.0001267688348889351,mean_majority_parity_5,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/mean_middle_majority_parity_10,-0.00020206160843372345,mean_middle_majority_parity_10,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/mean_tribe_2_5_majority_tail,-0.00018342630937695503,mean_tribe_2_5_majority_tail,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/mean_tribe_majority_tail,0.00038473354652523994,mean_tribe_majority_tail,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/tribe_3_4,-2.660905010998249e-06,tribe_3_4,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Settings,spaces/parameter_count,101761,All tasks,Number of trainable parameter coordinates.
+Numerical quality,spaces/ritz_max_relative_residual/Majority_0_10,4.4906234779702485e-06,Majority_0_10,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/isordered_0_10,3.2782800866307264e-05,isordered_0_10,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/isrepeating_0_10,4.385798410487216e-05,isrepeating_0_10,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/mean_majority_parity_5,3.893386563492814e-06,mean_majority_parity_5,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/mean_middle_majority_parity_10,3.529385183837959e-06,mean_middle_majority_parity_10,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/mean_tribe_2_5_majority_tail,8.457517895928134e-06,mean_tribe_2_5_majority_tail,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/mean_tribe_majority_tail,4.71534190839028e-06,mean_tribe_majority_tail,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/tribe_3_4,1.0456457670787818e-05,tribe_3_4,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Settings,spaces/search_dim,101761,All tasks,Full parameter count; duplicates parameter_count.
+Search flags,spaces/sharpness_candidate_exhausted/Majority_0_10,0,Majority_0_10,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/isordered_0_10,0,isordered_0_10,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/isrepeating_0_10,0,isrepeating_0_10,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/mean_majority_parity_5,0,mean_majority_parity_5,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/mean_middle_majority_parity_10,0,mean_middle_majority_parity_10,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/mean_tribe_2_5_majority_tail,0,mean_tribe_2_5_majority_tail,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/mean_tribe_majority_tail,0,mean_tribe_majority_tail,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/tribe_3_4,0,tribe_3_4,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_cap_reached/Majority_0_10,0,Majority_0_10,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/isordered_0_10,0,isordered_0_10,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/isrepeating_0_10,0,isrepeating_0_10,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/mean_majority_parity_5,0,mean_majority_parity_5,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/mean_middle_majority_parity_10,0,mean_middle_majority_parity_10,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/mean_tribe_2_5_majority_tail,0,mean_tribe_2_5_majority_tail,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/mean_tribe_majority_tail,0,mean_tribe_majority_tail,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/tribe_3_4,0,tribe_3_4,1 means the sharpness direction cap was reached.
+Task directions,spaces/sharpness_dim/Majority_0_10,3,Majority_0_10,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/isordered_0_10,1,isordered_0_10,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/isrepeating_0_10,1,isrepeating_0_10,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/mean_majority_parity_5,5,mean_majority_parity_5,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/mean_middle_majority_parity_10,5,mean_middle_majority_parity_10,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/mean_tribe_2_5_majority_tail,3,mean_tribe_2_5_majority_tail,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/mean_tribe_majority_tail,4,mean_tribe_majority_tail,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/tribe_3_4,2,tribe_3_4,Independent accepted harmful basis directions; not a certified full dimension.
+Numerical quality,spaces/sharpness_max_residual/Majority_0_10,1.3934205486519811e-07,Majority_0_10,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/isordered_0_10,2.52270041273499e-07,isordered_0_10,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/isrepeating_0_10,2.469436001756623e-07,isrepeating_0_10,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/mean_majority_parity_5,2.832513525700914e-07,mean_majority_parity_5,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/mean_middle_majority_parity_10,4.424897250140613e-07,mean_middle_majority_parity_10,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/mean_tribe_2_5_majority_tail,1.4312116017864986e-07,mean_tribe_2_5_majority_tail,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/mean_tribe_majority_tail,1.217981325940088e-07,mean_tribe_majority_tail,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/tribe_3_4,1.2619911270095014e-07,tribe_3_4,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Loss changes,spaces/sharpness_stop_harm/Majority_0_10,0.00856519624358043,Majority_0_10,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/isordered_0_10,0.00868701294530183,isordered_0_10,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/isrepeating_0_10,0.006214828579686582,isrepeating_0_10,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/mean_majority_parity_5,0.004781818483024836,mean_majority_parity_5,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/mean_middle_majority_parity_10,0.009107327088713646,mean_middle_majority_parity_10,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/mean_tribe_2_5_majority_tail,0.009969951584935188,mean_tribe_2_5_majority_tail,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/mean_tribe_majority_tail,0.0043731105979532,mean_tribe_majority_tail,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/tribe_3_4,0.004577133571729064,tribe_3_4,Actual worst-sign loss increase of the rejected sharpness candidate.
+Search flags,spaces/tangent_candidate_exhausted/Majority_0_10,0,Majority_0_10,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/isordered_0_10,0,isordered_0_10,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/isrepeating_0_10,0,isrepeating_0_10,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/mean_majority_parity_5,0,mean_majority_parity_5,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/mean_middle_majority_parity_10,0,mean_middle_majority_parity_10,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/mean_tribe_2_5_majority_tail,0,mean_tribe_2_5_majority_tail,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/mean_tribe_majority_tail,0,mean_tribe_majority_tail,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/tribe_3_4,0,tribe_3_4,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_cap_reached/Majority_0_10,1,Majority_0_10,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/isordered_0_10,1,isordered_0_10,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/isrepeating_0_10,1,isrepeating_0_10,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/mean_majority_parity_5,1,mean_majority_parity_5,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/mean_middle_majority_parity_10,1,mean_middle_majority_parity_10,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/mean_tribe_2_5_majority_tail,1,mean_tribe_2_5_majority_tail,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/mean_tribe_majority_tail,1,mean_tribe_majority_tail,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/tribe_3_4,1,tribe_3_4,1 means the tangent direction cap was reached.
+Task directions,spaces/tangent_dim/Majority_0_10,16,Majority_0_10,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/isordered_0_10,16,isordered_0_10,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/isrepeating_0_10,16,isrepeating_0_10,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/mean_majority_parity_5,16,mean_majority_parity_5,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/mean_middle_majority_parity_10,16,mean_middle_majority_parity_10,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/mean_tribe_2_5_majority_tail,16,mean_tribe_2_5_majority_tail,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/mean_tribe_majority_tail,16,mean_tribe_majority_tail,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/tribe_3_4,16,tribe_3_4,Independent accepted safe basis directions; not a certified full dimension.
+Numerical quality,spaces/tangent_max_residual/Majority_0_10,3.2242042434481416e-06,Majority_0_10,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Numerical quality,spaces/tangent_max_residual/isordered_0_10,5.82433371433397e-06,isordered_0_10,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Numerical quality,spaces/tangent_max_residual/isrepeating_0_10,5.006833238577186e-06,isrepeating_0_10,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Numerical quality,spaces/tangent_max_residual/mean_majority_parity_5,6.026092742278907e-06,mean_majority_parity_5,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Numerical quality,spaces/tangent_max_residual/mean_middle_majority_parity_10,1.0324779120973153e-05,mean_middle_majority_parity_10,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Numerical quality,spaces/tangent_max_residual/mean_tribe_2_5_majority_tail,5.114088946252715e-06,mean_tribe_2_5_majority_tail,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Numerical quality,spaces/tangent_max_residual/mean_tribe_majority_tail,4.0834110781356586e-06,mean_tribe_majority_tail,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Numerical quality,spaces/tangent_max_residual/tribe_3_4,1.7173689374033437e-06,tribe_3_4,Maximum absolute projected eigen-equation error of accepted tangent modes.

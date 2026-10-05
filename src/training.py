@@ -172,12 +172,12 @@ def train(
     eval_batch_size: int = 320,
     eval_seed: int = 0,
     space_delta: Optional[float] = None,
-    space_epsilon: float = 0.01,
+    space_epsilon: float = 0.002,
     space_num_inputs: int = 16,
     space_seed: int = 0,
-    space_num_directions: int = 16,
+    space_num_directions: int = 100,
     space_direction_seed: int = 0,
-    space_hvp_budget: int = 500,
+    space_hvp_budget: int = 10_000,
     space_intersection_cosine: float = 0.999,
 ) -> List[float]:
     """Train the model and optionally log per-batch metrics to W&B.
@@ -203,8 +203,9 @@ def train(
     Evaluation uses ``no_grad()``, restores model modes, and runs only when
     logging. Its private seed does not consume training randomness.
     Set ``space_delta`` to enable task-loss spaces after the final update.
-    Matrix-free block Lanczos uses ``space_hvp_budget`` Hessian-vector products
+    Matrix-free thick-restart block Lanczos uses ``space_hvp_budget`` products
     per task, shared between sharpness and gradient-orthogonal tangent modes.
+    Its active basis is bounded while eigenvector estimates survive restarts.
     Every returned direction passes both-sign finite-radius loss checks.
     ``space_num_directions`` caps the number returned for each task and each
     kind; it does not restrict the search to a parameter subspace. Full vectors
@@ -345,7 +346,8 @@ def train(
                                   "num_directions": space_num_directions,
                                   "num_inputs": space_num_inputs,
                                   "hvp_budget": space_hvp_budget,
-                                  "method": "matrix_free_block_lanczos_loss_spaces",
+                                  "method": "matrix_free_thick_restart_block_lanczos_loss_spaces",
+                                  "krylov_max_dim": directions.get("krylov_max_dim"),
                                   "search_scope": "all_trainable_parameters",
                                   "intersection_cosine": space_intersection_cosine},
                     )

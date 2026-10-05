@@ -1,5 +1,6 @@
 env/
 wandb
+unzipped_results/
 results.tar.gz
 .wandb-runtime-*/
 __pycache__/
