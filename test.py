@@ -4,16 +4,7 @@ import os
 import torch
 import wandb
 
-from src.functions import (
-    Isordered,
-    Isrepeating,
-    Majority_nm,
-    MeanOfFunctions,
-    Parity_n,
-    SelectorFunction,
-    Tribe_ws,
-    Voting_Function,
-)
+from src.functions import SelectorFunction, Tribe_ws
 from src.model import TransformerModel
 from src.training import sample_batch, train
 
@@ -81,40 +72,19 @@ def main() -> None:
     loss_config = {"name": "MSELoss", "reduction": "mean"}
 
     torch.manual_seed(seed)
-    # Zero-based [n, m) windows within the 21-bit payload (24 minus 3 selectors).
-    ordered = Isordered(n=0, m=10)
-    repeating = Isrepeating(n=0, m=10)
-    majority_first_10 = Majority_nm(n=0, m=10)
-    tribe_3_4 = Tribe_ws(w=3, s=4)
-
-    # The first two means reuse tasks that also appear on their own.
-    average_majority_parity = MeanOfFunctions(
-        [majority_first_10, Parity_n(n=5)], name="mean_majority_parity_5"
-    )
-    average_tribe_majority = MeanOfFunctions(
-        [tribe_3_4, Majority_nm(n=10, m=21)], name="mean_tribe_majority_tail"
-    )
-    average_middle_parity = MeanOfFunctions(
-        [Majority_nm(n=4, m=14), Parity_n(n=10)],
-        name="mean_middle_majority_parity_10",
-    )
-    average_tribe_tail = MeanOfFunctions(
-        [Tribe_ws(w=2, s=5), Majority_nm(n=11, m=21)],
-        name="mean_tribe_2_5_majority_tail",
-    )
-
-    # Every selector task now produces binary labels, including continuous means.
+    # Split the 21-bit payload (24 minus 3 selector bits) into 1 through 8 tribes.
+    # Each tribe has width floor(21 / s); leftover trailing bits are ignored.
     tasks = [
-        ordered,
-        repeating,
-        majority_first_10,
-        tribe_3_4,
-        average_majority_parity,
-        average_tribe_majority,
-        average_middle_parity,
-        average_tribe_tail,
+        Tribe_ws(w=21, s=1),
+        Tribe_ws(w=10, s=2),
+        Tribe_ws(w=7, s=3),
+        Tribe_ws(w=5, s=4),
+        Tribe_ws(w=4, s=5),
+        Tribe_ws(w=3, s=6),
+        Tribe_ws(w=3, s=7),
+        Tribe_ws(w=2, s=8),
     ]
-    mix = SelectorFunction([Voting_Function(function) for function in tasks])
+    mix = SelectorFunction(tasks)
 
     model = TransformerModel(**model_config).to(device)
     criterion = torch.nn.MSELoss(reduction=loss_config["reduction"])

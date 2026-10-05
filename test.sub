@@ -29,5 +29,6 @@ request_cpus            = 2
 request_memory          = 8GB
 request_disk            = 4GB
 request_gpus            = 1
+gpus_minimum_memory = 64000
 
 queue 1
