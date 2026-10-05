@@ -1,0 +1,5 @@
+# Direct runtime dependencies, matching the working local environment.
+# Docker installs torch from the CUDA wheel index before this file.
+torch==2.8.0
+numpy==2.0.2
+wandb==0.26.1

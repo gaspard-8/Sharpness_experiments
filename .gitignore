@@ -1,2 +1,9 @@
 env/
 wandb
+results/
+results.tar.gz
+.wandb-runtime-*/
+__pycache__/
+*.pyc
+*.env
+.wandb-cluster-key

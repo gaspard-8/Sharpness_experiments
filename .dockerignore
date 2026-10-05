@@ -1,0 +1,6 @@
+# Only the dependency manifest enters the build context.
+**
+!Dockerfile
+!dockerfile
+!requirements.txt
+!.dockerignore
