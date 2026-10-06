@@ -97,7 +97,7 @@ def main() -> None:
         Tribe_ws(w=8, s=2),
         Tribe_ws(w=5, s=3),
         Tribe_ws(w=4, s=4),
-        Tribe_ws(w=3, s=6),
+        Tribe_ws(w=3, s=5),
         Tribe_ws(w=2, s=8),
         Tribe_ws(w=4, s=3),
         Tribe_ws(w=3, s=3),
