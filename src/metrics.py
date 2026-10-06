@@ -2,7 +2,7 @@
 
 from collections import Counter, defaultdict
 from time import perf_counter
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Union
 
 from numpy.polynomial.legendre import leggauss
 import torch as t
@@ -224,37 +224,31 @@ def task_affinity_metrics(
     model: t.nn.Module,
     function: BoolFunction,
     criterion: t.nn.modules.loss._Loss,
-    gradient_payloads: t.Tensor,
-    evaluation_payloads: t.Tensor,
-    radius: float = 0.02,
+    payloads: t.Tensor,
+    learning_rate: Union[float, Dict[str, float]] = 1e-4,
     eval_batch_size: int = 256,
-    norm_epsilon: float = 1e-12,
 ) -> Dict[str, float]:
-    """Measure directed affinities after equal-norm task descent steps.
+    """Measure the relative lookahead affinity of TAG, Equation (1).
 
-    A[i,j] = L_j(theta) - L_j(theta - radius * g_i / ||g_i||).
-    Positive affinity means help; negative means harm. Both losses use the
-    same evaluation payloads, independently of the gradient payloads. All
+    A[i,j] = 1 - L_j(theta - learning_rate * g_i) / L_j(theta).
+    Positive affinity means help; negative means harm. Source gradients and
+    both target losses use the same payload batch, as in the paper. All
     valid tasks (including duplicates and the diagonal) participate without
     training-probability weights. Gradients include every trainable parameter.
-    A source with a nonfinite or <= norm_epsilon gradient has an undefined
-    direction: its complete row is NaN and source_valid is zero.
+    A scalar learning rate applies to every parameter; a name-to-rate mapping
+    supports optimizer groups and must cover all trainable parameters. This
+    is an SGD lookahead, without gradient normalization or AdamW moments.
+    A nonfinite source gradient produces a NaN row and source_valid=0. Zero
+    gradients are valid zero steps. A nonpositive/nonfinite target baseline
+    produces a NaN column and target_valid=0; denominators are not clamped.
 
     Target forwards are batched across tasks with no backward pass or Hessian
     computation. Functional parameter replacements avoid changing the model,
     existing gradients, or optimizer state. Buffers are cloned, dropout is
     disabled, and all module modes are restored, including on failure.
     """
-    for label, payloads in (("gradient_payloads", gradient_payloads),
-                            ("evaluation_payloads", evaluation_payloads)):
-        if payloads.ndim != 2 or min(payloads.shape) < 1:
-            raise ValueError(f"{label} must be a nonempty 2D batch.")
-    if gradient_payloads.shape[1] != evaluation_payloads.shape[1]:
-        raise ValueError("Gradient and evaluation payload lengths must match.")
-    if not 0 < radius < float("inf"):
-        raise ValueError("radius must be finite and positive.")
-    if not 0 <= norm_epsilon < float("inf"):
-        raise ValueError("norm_epsilon must be finite and nonnegative.")
+    if payloads.ndim != 2 or min(payloads.shape) < 1:
+        raise ValueError("payloads must be a nonempty 2D batch.")
     if not isinstance(eval_batch_size, int) or isinstance(eval_batch_size, bool) or eval_batch_size < 1:
         raise ValueError("eval_batch_size must be a positive integer.")
 
@@ -262,14 +256,21 @@ def task_affinity_metrics(
     trainable = {name: parameter for name, parameter in parameters.items() if parameter.requires_grad}
     if not trainable:
         raise ValueError("Task affinities require trainable model parameters.")
-    if any(payloads.device != next(iter(parameters.values())).device
-           for payloads in (gradient_payloads, evaluation_payloads)):
+    if payloads.device != next(iter(parameters.values())).device:
         raise ValueError("Payloads and model parameters must be on the same device.")
+    if isinstance(learning_rate, dict):
+        if learning_rate.keys() != trainable.keys():
+            raise ValueError("learning_rate must cover every trainable parameter exactly once.")
+        rates = {name: float(rate) for name, rate in learning_rate.items()}
+    else:
+        rates = {name: float(learning_rate) for name in trainable}
+    if any(not 0 <= rate < float("inf") for rate in rates.values()):
+        raise ValueError("learning rates must be finite and nonnegative.")
     compute_device = _diagnostic_device(trainable.values())
     functions = function.functions if isinstance(function, SelectorFunction) else [function]
     names = _unique_metric_names(functions)
     selector_size = function.selector_size if isinstance(function, SelectorFunction) else 0
-    shifts = t.arange(selector_size - 1, -1, -1, device=gradient_payloads.device)
+    shifts = t.arange(selector_size - 1, -1, -1, device=payloads.device)
 
     def task_inputs(code: int, payloads: t.Tensor) -> t.Tensor:
         if not selector_size:
@@ -278,9 +279,9 @@ def task_affinity_metrics(
         return t.cat((prefix, payloads), dim=1)
 
     evaluation_inputs = t.cat([
-        task_inputs(code, evaluation_payloads) for code in range(len(functions))
+        task_inputs(code, payloads) for code in range(len(functions))
     ])
-    evaluation_labels = [selected_function(evaluation_payloads) for selected_function in functions]
+    evaluation_labels = [selected_function(payloads) for selected_function in functions]
     base = {name: parameter.detach() for name, parameter in parameters.items()}
     buffers = {name: buffer.detach().clone() for name, buffer in model.named_buffers()}
 
@@ -289,7 +290,7 @@ def task_affinity_metrics(
             predictions = t.cat([
                 functional_call(model, (point, buffers), (batch,))
                 for batch in evaluation_inputs.split(eval_batch_size)
-            ]).split(evaluation_payloads.size(0))
+            ]).split(payloads.size(0))
             return t.stack([
                 _mean_loss(criterion, outputs, labels)
                 for outputs, labels in zip(predictions, evaluation_labels)
@@ -301,11 +302,13 @@ def task_affinity_metrics(
     norms, rows, valid_sources = [], [], []
     try:
         baseline = target_losses(base)
+        valid_targets = t.isfinite(baseline) & (baseline > 0)
+        denominators = t.where(valid_targets, baseline, t.ones_like(baseline))
         for code, selected_function in enumerate(functions):
             with t.enable_grad():
                 outputs = functional_call(model, (parameters, buffers),
-                                          (task_inputs(code, gradient_payloads),))
-                loss = _mean_loss(criterion, outputs, selected_function(gradient_payloads))
+                                          (task_inputs(code, payloads),))
+                loss = _mean_loss(criterion, outputs, evaluation_labels[code])
                 gradients = (t.autograd.grad(loss, tuple(trainable.values()), allow_unused=True)
                              if loss.requires_grad else [None] * len(trainable))
             gradients = [gradient.detach() if gradient is not None else t.zeros_like(parameter)
@@ -313,7 +316,7 @@ def task_affinity_metrics(
             # Reduce in float64 on CUDA/CPU. MPS transfers before casting.
             norm = t.sqrt(sum(t.sum(gradient.to(compute_device).double().square())
                               for gradient in gradients))
-            valid = bool(t.isfinite(norm) & (norm > norm_epsilon))
+            valid = bool(t.isfinite(norm))
             norms.append(norm)
             valid_sources.append(valid)
             if not valid:
@@ -321,23 +324,30 @@ def task_affinity_metrics(
                 continue
             with t.no_grad():
                 point = dict(base)
-                # Normalize before casting back, so tiny gradient norms cannot
-                # make the scalar radius/norm overflow in the model dtype.
                 for (name, parameter), gradient in zip(trainable.items(), gradients):
-                    direction = (gradient.to(compute_device).double() / norm).to(parameter)
-                    point[name] = base[name] - radius * direction
-                rows.append(baseline - target_losses(point))
+                    point[name] = base[name] - rates[name] * gradient
+                # This is algebraically 1 - after/before, with less rounding
+                # cancellation for the small learning rates used in training.
+                relative_reduction = (baseline - target_losses(point)) / denominators
+                rows.append(t.where(valid_targets, relative_reduction,
+                                    t.full_like(baseline, float("nan"))))
         matrix = t.stack(rows).cpu()
-        baseline, norms = baseline.cpu(), t.stack(norms).cpu()
+        baseline, norms, valid_targets = baseline.cpu(), t.stack(norms).cpu(), valid_targets.cpu()
     finally:
         for module, was_training in modes:
             module.training = was_training
 
-    metrics = {"affinity/radius": radius, "affinity/compute_seconds": perf_counter() - started}
+    metrics = {"affinity/compute_seconds": perf_counter() - started}
+    if len(set(rates.values())) == 1:
+        metrics["affinity/learning_rate"] = next(iter(rates.values()))
+    else:
+        metrics["affinity/learning_rate_min"] = min(rates.values())
+        metrics["affinity/learning_rate_max"] = max(rates.values())
     for i, source in enumerate(names):
         metrics[f"affinity/baseline_loss/{source}"] = float(baseline[i])
         metrics[f"affinity/source_gradient_norm/{source}"] = float(norms[i])
         metrics[f"affinity/source_valid/{source}"] = float(valid_sources[i])
+        metrics[f"affinity/target_valid/{source}"] = float(valid_targets[i])
         for j, target in enumerate(names):
             metrics[f"affinity/{source}_to_{target}"] = float(matrix[i, j])
     return metrics

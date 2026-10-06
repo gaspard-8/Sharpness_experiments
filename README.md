@@ -215,35 +215,47 @@ These metrics describe raw loss gradients. AdamW's actual updates also depend
 on its running gradient moments, adaptive scaling, and weight decay.
 
 Training measures a **directed task-affinity matrix every 100 completed
-optimizer steps**, at the post-update parameters. For source task `i`, let
-`g_i` be its mean-loss gradient across all trainable parameters, including
-positional embeddings. The hypothetical step is
-`theta_i = theta - affinity_radius * g_i / ||g_i||`, so every valid source
-moves the same global Euclidean parameter distance (`affinity_radius=0.02`).
-Each matrix entry is `A[i,j] = L_j(theta) - L_j(theta_i)`:
-**positive means help, negative means harm**, in raw mean-loss units. Rows
-are source tasks and columns are target tasks. The diagonal measures the
-effect on the source itself; both directions of each pair are recorded.
-These are normalized raw-gradient steps, independent of AdamW's state.
+optimizer steps**, at the post-update parameters, using the relative
+lookahead affinity from [TAG Equation (1), NeurIPS 2021](https://proceedings.neurips.cc/paper/2021/file/e77910ebb93b511588557806310f78f1-Paper.pdf).
+For source task `i`, let `g_i` be its mean-loss gradient across all trainable
+parameters, including positional embeddings. The hypothetical SGD step is
+`theta_i = theta - lr * g_i`, using the optimizer's **current** learning rate
+at each measurement. Gradient magnitudes are retained; there is no fixed
+movement radius. Each entry is `A[i,j] = 1 - L_j(theta_i) / L_j(theta)`:
+**positive means help, negative means harm**, as a relative loss reduction.
+For example, `+0.1` means a 10% reduction and `-0.1` a 10% increase in the
+target loss. Rows are source tasks and columns are target tasks. The diagonal
+measures the effect on the source itself; both directions are recorded.
+The diagnostic uses raw SGD gradients, without AdamW moments or weight
+decay; actual training still uses AdamW. If optimizer groups have different
+learning rates, each parameter uses its group's rate. Trainable parameters
+outside the optimizer stay fixed in the hypothetical step.
 
 W&B receives `affinity/matrix` as a labeled matrix table, and
 `affinity/<source>_to_<target>` as scalar histories. Duplicate function names
 get the same distinct suffixes as gradient metrics; unused selector codes
 are excluded. Tasks are measured without training-probability weighting.
 `affinity/baseline_loss/<task>`, `affinity/source_gradient_norm/<task>`,
-`affinity/source_valid/<task>`, and `affinity/radius` provide context. If a
-source gradient norm is nonfinite or at most `1e-12`, its normalized direction
-is undefined: its entire matrix row is NaN and `source_valid` is zero.
+`affinity/source_valid/<task>`, and `affinity/target_valid/<task>` provide
+context. A nonfinite source gradient norm produces a NaN row and
+`source_valid=0`. Zero and tiny gradients are valid; a zero gradient gives a
+zero step. A nonpositive or nonfinite target baseline produces a NaN column
+and `target_valid=0`, because the relative score is undefined. Positive
+denominators are not clamped, so very small losses can give large relative
+scores. `affinity/learning_rate` logs a common rate; differing parameter rates
+are summarized by `affinity/learning_rate_min` and `affinity/learning_rate_max`.
 
 Configure `affinity_interval` (default `100`, or `None` to disable),
-`affinity_radius`, `affinity_num_inputs` (default `64` for each probe set),
+`affinity_num_inputs` (default `64`),
 `affinity_eval_batch_size` (default `256`), and `affinity_seed` in
-`training_config`. Two independent uniform payload batches are sampled with
-a private seeded generator, then fixed across checkpoints and shared across
-selectors. One computes source gradients; the other measures target losses,
-using identical target inputs before and after each step. These diagnostic
-probes are not excluded from training, so the matrix measures probe-loss
-transfer and does not certify held-out generalization.
+`training_config`. One uniform payload batch is sampled with a private seeded
+generator, then fixed across checkpoints and shared across selectors. The
+same inputs compute source gradients and measure target losses before and
+after the hypothetical steps, matching the paper's same-batch definition.
+We retain fixed probes and periodic snapshots for checkpoint comparisons,
+rather than measuring each newly sampled training batch or automatically
+averaging affinities into task groups. These diagnostic probes are not
+excluded from training and do not certify held-out generalization.
 
 Target forwards are batched across tasks to bound memory. At the eight-task
 defaults, a measurement uses eight source forward/backward passes and 18
@@ -253,7 +265,7 @@ evaluation mode and functional parameter replacements; it preserves model
 parameters, buffers, existing gradients, optimizer state and module modes,
 and does not consume training randomness. It runs only when W&B logging is
 enabled; `task_affinity_metrics()` also works independently of W&B. Smoke
-tests measure it on each of their two steps with four inputs per probe set.
+tests measure it on each of their two steps with four probe inputs per task.
 
 Training also logs `curvature/multi_task`, the multi-task curvature from
 [PCGrad Definition 3](https://papers.neurips.cc/paper_files/paper/2020/file/3fe78a8acf5fda99de95303940a2420c-Paper.pdf):

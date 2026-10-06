@@ -27,7 +27,8 @@ class ExperimentOptionsTest(unittest.TestCase):
                 affinity_interval = 1 if "--smoke-test" in flags else 100
                 self.assertEqual(training.call_args.kwargs["affinity_interval"], affinity_interval)
                 self.assertEqual(init.call_args.kwargs["config"]["train_affinity_interval"], affinity_interval)
-                self.assertEqual(training.call_args.kwargs["affinity_radius"], .02)
+                self.assertNotIn("affinity_radius", training.call_args.kwargs)
+                self.assertNotIn("train_affinity_radius", init.call_args.kwargs["config"])
 
 
 if __name__ == "__main__":

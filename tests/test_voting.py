@@ -180,7 +180,8 @@ class VotingIntegrationTest(unittest.TestCase):
             experiment.main()
         mix = training.call_args.kwargs["function"]
         self.assertEqual(len(mix.functions), 8)
-        inputs = torch.randint(0, 2, (64, 21))
+        payload_len = training.call_args.kwargs["max_len"] - mix.selector_size
+        inputs = torch.randint(0, 2, (64, payload_len))
         for function in mix.functions:
             self.assertTrue(function.bool_output)
             labels = function(inputs)

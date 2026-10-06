@@ -1,0 +1,20 @@
+{
+  "run": "zz25goxp",
+  "latest_archive": "122207.0.tar.gz",
+  "extracted_run_matches_archive_sha256": true,
+  "affinity_tables_equal_scalar_matrices": 300,
+  "selected_task_checkpoints": 265,
+  "selected_cross_task_observations": 1855,
+  "self_help_count": 25,
+  "weighted_sensitivity_exhaustive_check": "Exact agreement for 1 through 10 bits",
+  "all_eight_sensitivities_independent_sample_check": "100,000 uniform payloads; all estimates within 6 standard errors of exact calculations",
+  "pdf_pages": 10,
+  "visual_review": "All 10 pages inspected; updated learning axes and scatter labels re-rendered and verified",
+  "source_hashes": {
+    "unzipped_results/results/code/test.py": "f6b9d4df61373ae5d32c85b42eccc271a85c12101d5fc1c9e569ab97ed9b72cc",
+    "unzipped_results/results/code/src/metrics.py": "28ee600a670bfc7a3c28a85a81f3646e887dd76abeff046ef234e38a4159e9e9",
+    "unzipped_results/results/code/src/functions.py": "6eb78b4635f6772f3b1944353df9cb3d8e83300e915ad16cf4ac949caf7a5cc4",
+    "unzipped_results/results/code/src/evaluation.py": "b8ee76a5084ea6d8b048f11b9bfaaffd702bcf0779f346c8307294b3e3aee267",
+    "unzipped_results/results/code/src/training.py": "caad1461a7374e5cd063a5a71b890bfe532458020be6e4d747618ad9d5177816"
+  }
+}

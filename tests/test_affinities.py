@@ -45,14 +45,14 @@ class CapturingRun:
 
 
 class TaskAffinityTest(unittest.TestCase):
-    def test_exact_directed_matrix_and_equal_movement_include_position_parameters(self):
+    def test_exact_paper_matrix_uses_gradient_magnitude_and_includes_position_parameters(self):
         model = AffinityProbeModel([[1, 0], [-2, 0], [0, 3], [2, 0]])
         function = SelectorFunction([First()] * 4)
         probes = torch.ones((3, 1), dtype=torch.long)
-        metrics = task_affinity_metrics(model, function, torch.nn.MSELoss(), probes, probes,
-                                        radius=.1, eval_batch_size=5)
-        expected = [[.19, -.44, 0, .36], [-.21, .36, 0, -.44],
-                    [0, 0, .51, 0], [.19, -.44, 0, .36]]
+        metrics = task_affinity_metrics(model, function, torch.nn.MSELoss(), probes,
+                                        learning_rate=.1, eval_batch_size=5)
+        expected = [[.36, -.96, 0, .64], [-.96, .96, 0, -2.24],
+                    [0, 0, .36, 0], [.64, -2.24, 0, .96]]
         for i, row in enumerate(expected):
             for j, value in enumerate(row):
                 self.assertAlmostEqual(metrics[f"affinity/first_{i}_to_first_{j}"], value, places=12)
@@ -60,35 +60,40 @@ class TaskAffinityTest(unittest.TestCase):
                          [2., 4., 6., 4.])
         moved_points = [point for point in model.points if point.norm() > 0]
         self.assertTrue(moved_points)
-        for point in moved_points:
-            self.assertAlmostEqual(float(point.norm()), .1, places=12)
+        self.assertEqual({round(float(point.norm()), 12) for point in moved_points}, {.2, .4, .6})
+        self.assertEqual(metrics["affinity/learning_rate"], .1)
+        self.assertNotIn("affinity/radius", metrics)
 
-    def test_learned_target_can_be_harmed_and_zero_source_is_undefined(self):
+    def test_zero_target_baseline_is_undefined_but_zero_source_is_a_valid_zero_step(self):
         model = AffinityProbeModel([[1, 0], [1, 0]], selector_size=1, offsets=[0, 1])
         probes = torch.ones((3, 1), dtype=torch.long)
         metrics = task_affinity_metrics(model, SelectorFunction([First()] * 2),
-                                        torch.nn.MSELoss(), probes, probes, radius=.1)
+                                        torch.nn.MSELoss(), probes, learning_rate=.1)
         self.assertEqual(metrics["affinity/baseline_loss/first_1"], 0.)
-        self.assertAlmostEqual(metrics["affinity/first_0_to_first_1"], -.01, places=12)
-        self.assertEqual(metrics["affinity/source_valid/first_1"], 0.)
-        self.assertTrue(math.isnan(metrics["affinity/first_1_to_first_0"]))
+        self.assertEqual(metrics["affinity/target_valid/first_1"], 0.)
+        self.assertTrue(math.isnan(metrics["affinity/first_0_to_first_1"]))
+        self.assertEqual(metrics["affinity/source_valid/first_1"], 1.)
+        self.assertEqual(metrics["affinity/first_1_to_first_0"], 0.)
         self.assertTrue(math.isnan(metrics["affinity/first_1_to_first_1"]))
 
-    def test_target_evaluation_is_separate_and_reductions_and_chunks_preserve_mean_loss(self):
-        # Gradient probes ask for output 1, but target probes ask for 0.
-        # Moving towards the source labels must therefore harm target loss.
+    def test_relative_loss_normalization_and_mean_reductions_with_shared_probes(self):
+        # Different offsets give target baselines .25, .5625 and .0625.
+        # Compare the relative reductions to the exact quadratic losses.
         for reduction in ("mean", "sum", "none"):
             for batch_size in (1, 5, 100):
                 with self.subTest(reduction=reduction, batch_size=batch_size):
-                    model = AffinityProbeModel([[1, 0]] * 3)
+                    offsets = [.5, .25, .75]
+                    model = AffinityProbeModel([[1, 0]] * 3, offsets=offsets)
                     metrics = task_affinity_metrics(
                         model, SelectorFunction([First()] * 3), torch.nn.MSELoss(reduction=reduction),
-                        torch.ones((2, 1), dtype=torch.long), torch.zeros((7, 1), dtype=torch.long),
-                        radius=.1, eval_batch_size=batch_size,
+                        torch.ones((7, 1), dtype=torch.long),
+                        learning_rate=.1, eval_batch_size=batch_size,
                     )
                     for i in range(3):
                         for j in range(3):
-                            self.assertAlmostEqual(metrics[f"affinity/first_{i}_to_first_{j}"], -.01, places=12)
+                            step = .2 * (1 - offsets[i])
+                            expected = 1 - (offsets[j] + step - 1) ** 2 / (offsets[j] - 1) ** 2
+                            self.assertAlmostEqual(metrics[f"affinity/first_{i}_to_first_{j}"], expected, places=12)
                     self.assertEqual(set(model.seen_codes), {0, 1, 2})
 
     def test_tiny_and_nonfinite_source_gradients_are_not_normalized(self):
@@ -97,17 +102,20 @@ class TaskAffinityTest(unittest.TestCase):
                 model = AffinityProbeModel([[scale, 0], [1, 0]], selector_size=1)
                 probes = torch.ones((2, 1), dtype=torch.long)
                 metrics = task_affinity_metrics(model, SelectorFunction([First()] * 2),
-                                                torch.nn.MSELoss(), probes, probes)
-                self.assertEqual(metrics["affinity/source_valid/first_0"], 0.)
-                self.assertTrue(math.isnan(metrics["affinity/first_0_to_first_1"]))
+                                                torch.nn.MSELoss(), probes)
+                self.assertEqual(metrics["affinity/source_valid/first_0"], float(math.isfinite(scale)))
+                if math.isfinite(scale):
+                    self.assertEqual(metrics["affinity/first_0_to_first_1"], 0.)
+                else:
+                    self.assertTrue(math.isnan(metrics["affinity/first_0_to_first_1"]))
                 self.assertEqual(metrics["affinity/source_valid/first_1"], 1.)
 
     def test_single_task_without_selector_and_frozen_or_unused_parameters(self):
         for function in (First(name="custom"), SelectorFunction([First(name="custom")])):
             model = AffinityProbeModel([[1, 0]], selector_size=0)
             probes = torch.ones((3, 1), dtype=torch.long)
-            metrics = task_affinity_metrics(model, function, torch.nn.MSELoss(), probes, probes, radius=.1)
-            self.assertAlmostEqual(metrics["affinity/custom_to_custom"], .19, places=12)
+            metrics = task_affinity_metrics(model, function, torch.nn.MSELoss(), probes, learning_rate=.1)
+            self.assertAlmostEqual(metrics["affinity/custom_to_custom"], .36, places=12)
             self.assertEqual(float(model.frozen), 3.)
             self.assertEqual(float(model.unused.detach()), 7.)
 
@@ -135,10 +143,10 @@ class TaskAffinityTest(unittest.TestCase):
                     if fail:
                         with self.assertRaisesRegex(RuntimeError, "perturbed forward failure"):
                             task_affinity_metrics(model, SelectorFunction([First()] * 2),
-                                                  torch.nn.MSELoss(), probes, probes)
+                                                  torch.nn.MSELoss(), probes)
                     else:
                         task_affinity_metrics(model, SelectorFunction([First()] * 2),
-                                              torch.nn.MSELoss(), probes, probes)
+                                              torch.nn.MSELoss(), probes)
                 self.assertEqual([module.training for module in model.modules()], modes)
                 for name, value in model.state_dict().items():
                     torch.testing.assert_close(value, state[name], rtol=0, atol=0)
@@ -154,7 +162,7 @@ class TaskAffinityTest(unittest.TestCase):
         rng_before = torch.get_rng_state().clone()
         state = copy.deepcopy(model.state_dict())
         results = [task_affinity_metrics(model, SelectorFunction([First()] * 2),
-                                        torch.nn.MSELoss(), payloads, payloads, eval_batch_size=4)
+                                        torch.nn.MSELoss(), payloads, eval_batch_size=4)
                    for _ in range(2)]
         for name, value in results[0].items():
             if name != "affinity/compute_seconds":
@@ -168,39 +176,54 @@ class TaskAffinityTest(unittest.TestCase):
     def test_invalid_configuration(self):
         model = AffinityProbeModel([[1, 0]], selector_size=0)
         payloads = torch.ones((2, 1), dtype=torch.long)
-        for kwargs in ({"radius": 0}, {"radius": -1}, {"radius": float("nan")},
-                       {"eval_batch_size": 0}, {"eval_batch_size": True}, {"norm_epsilon": -1}):
+        for kwargs in ({"learning_rate": -1}, {"learning_rate": float("nan")},
+                       {"learning_rate": float("inf")}, {"learning_rate": {}},
+                       {"eval_batch_size": 0}, {"eval_batch_size": True}):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
-                task_affinity_metrics(model, First(), torch.nn.MSELoss(), payloads, payloads, **kwargs)
+                task_affinity_metrics(model, First(), torch.nn.MSELoss(), payloads, **kwargs)
+
+    def test_parameter_group_rates_and_zero_learning_rate(self):
+        model = AffinityProbeModel([[1, 1]], selector_size=0)
+        payloads = torch.ones((3, 1), dtype=torch.long)
+        rates = {"weight": .1, "positional_encoding.weight": .2, "unused": 0.}
+        metrics = task_affinity_metrics(model, First(), torch.nn.MSELoss(), payloads, learning_rate=rates)
+        # Gradient (-2,-2) gives movement (.2,.4), prediction .6, loss .16.
+        self.assertAlmostEqual(metrics["affinity/first_to_first"], .84, places=12)
+        self.assertEqual(metrics["affinity/learning_rate_min"], 0.)
+        self.assertEqual(metrics["affinity/learning_rate_max"], .2)
+        metrics = task_affinity_metrics(model, First(), torch.nn.MSELoss(), payloads, learning_rate=0.)
+        self.assertEqual(metrics["affinity/first_to_first"], 0.)
 
 
 class TaskAffinityLoggingTest(unittest.TestCase):
-    def test_default_interval_matrix_orientation_and_fixed_independent_probes(self):
+    def test_default_interval_matrix_orientation_shared_probes_and_current_learning_rate(self):
         model = AffinityProbeModel([[1, 0]] * 2, selector_size=1).float()
         run = CapturingRun()
         weights = []
+        optimizer = torch.optim.SGD(model.parameters(), lr=.01)
 
         def capture(*args, **kwargs):
             weights.append(float(args[0].weight.detach()))
+            # Change the LR after the first checkpoint to verify it is read
+            # anew, rather than frozen at the initial optimizer configuration.
+            optimizer.param_groups[0]["lr"] = .02
             return {"affinity/first_0_to_first_0": .1, "affinity/first_0_to_first_1": -.2,
                     "affinity/first_1_to_first_0": .3, "affinity/first_1_to_first_1": .4}
 
         with patch("src.training.task_affinity_metrics", side_effect=capture) as measured:
             train(model, SelectorFunction([First()] * 2), torch.nn.MSELoss(),
-                  torch.optim.SGD(model.parameters(), lr=.01), max_len=4, min_len=4,
+                  optimizer, max_len=4, min_len=4,
                   batch_size=4, num_steps=201, wandb_run=run, affinity_num_inputs=7,
                   affinity_seed=13, gradient_interval=1000, curvature_interval=1000,
                   sharpness_interval=1000)
         self.assertEqual([step for step, metrics in run.logged if "affinity/matrix" in metrics], [100, 200])
         self.assertEqual(measured.call_count, 2)
         first, second = measured.call_args_list
-        expected = torch.randint(0, 2, (2, 7, 3), generator=torch.Generator().manual_seed(13))
-        torch.testing.assert_close(first.args[3], expected[0])
-        torch.testing.assert_close(first.args[4], expected[1])
-        # Views share the same fixed underlying probes across checkpoints.
-        self.assertEqual(first.args[3].data_ptr(), second.args[3].data_ptr())
-        self.assertEqual(first.args[4].data_ptr(), second.args[4].data_ptr())
-        self.assertNotEqual(first.args[3].data_ptr(), first.args[4].data_ptr())
+        expected = torch.randint(0, 2, (7, 3), generator=torch.Generator().manual_seed(13))
+        torch.testing.assert_close(first.args[3], expected)
+        self.assertIs(first.args[3], second.args[3])
+        self.assertEqual(set(first.kwargs["learning_rate"].values()), {.01})
+        self.assertEqual(set(second.kwargs["learning_rate"].values()), {.02})
         self.assertGreater(weights[0], 0.)
         for step, metrics in run.logged:
             if "affinity/matrix" in metrics:

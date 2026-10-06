@@ -67,7 +67,6 @@ def main() -> None:
         "gradient_num_inputs": 256,
         "gradient_seed": seed,
         "affinity_interval": 100,
-        "affinity_radius": 0.02,
         "affinity_num_inputs": 64,
         "affinity_eval_batch_size": 256,
         "affinity_seed": seed,
