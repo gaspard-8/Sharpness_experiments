@@ -181,6 +181,47 @@ alignment score.
 These metrics describe raw loss gradients. AdamW's actual updates also depend
 on its running gradient moments, adaptive scaling, and weight decay.
 
+Training measures a **directed task-affinity matrix every 100 completed
+optimizer steps**, at the post-update parameters. For source task `i`, let
+`g_i` be its mean-loss gradient across all trainable parameters, including
+positional embeddings. The hypothetical step is
+`theta_i = theta - affinity_radius * g_i / ||g_i||`, so every valid source
+moves the same global Euclidean parameter distance (`affinity_radius=0.02`).
+Each matrix entry is `A[i,j] = L_j(theta) - L_j(theta_i)`:
+**positive means help, negative means harm**, in raw mean-loss units. Rows
+are source tasks and columns are target tasks. The diagonal measures the
+effect on the source itself; both directions of each pair are recorded.
+These are normalized raw-gradient steps, independent of AdamW's state.
+
+W&B receives `affinity/matrix` as a labeled matrix table, and
+`affinity/<source>_to_<target>` as scalar histories. Duplicate function names
+get the same distinct suffixes as gradient metrics; unused selector codes
+are excluded. Tasks are measured without training-probability weighting.
+`affinity/baseline_loss/<task>`, `affinity/source_gradient_norm/<task>`,
+`affinity/source_valid/<task>`, and `affinity/radius` provide context. If a
+source gradient norm is nonfinite or at most `1e-12`, its normalized direction
+is undefined: its entire matrix row is NaN and `source_valid` is zero.
+
+Configure `affinity_interval` (default `100`, or `None` to disable),
+`affinity_radius`, `affinity_num_inputs` (default `64` for each probe set),
+`affinity_eval_batch_size` (default `256`), and `affinity_seed` in
+`training_config`. Two independent uniform payload batches are sampled with
+a private seeded generator, then fixed across checkpoints and shared across
+selectors. One computes source gradients; the other measures target losses,
+using identical target inputs before and after each step. These diagnostic
+probes are not excluded from training, so the matrix measures probe-loss
+transfer and does not certify held-out generalization.
+
+Target forwards are batched across tasks to bound memory. At the eight-task
+defaults, a measurement uses eight source forward/backward passes and 18
+forward-only target batches of 256 examples, with no Hessian or space search.
+`affinity/compute_seconds` logs the measurement's runtime. The measure uses
+evaluation mode and functional parameter replacements; it preserves model
+parameters, buffers, existing gradients, optimizer state and module modes,
+and does not consume training randomness. It runs only when W&B logging is
+enabled; `task_affinity_metrics()` also works independently of W&B. Smoke
+tests measure it on each of their two steps with four inputs per probe set.
+
 Training also logs `curvature/multi_task`, the multi-task curvature from
 [PCGrad Definition 3](https://papers.neurips.cc/paper_files/paper/2020/file/3fe78a8acf5fda99de95303940a2420c-Paper.pdf):
 

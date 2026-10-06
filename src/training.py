@@ -6,7 +6,10 @@ import torch as t
 
 from src.evaluation import EvaluationSet, evaluate_fixed_set, make_evaluation_set
 from src.functions import BoolFunction, SelectorFunction
-from src.metrics import average_direction_sharpness, batch_metrics, gradient_metrics, multi_task_curvature
+from src.metrics import (
+    _unique_metric_names, average_direction_sharpness, batch_metrics,
+    gradient_metrics, multi_task_curvature, task_affinity_metrics,
+)
 from src.model import TransformerModel
 from src.spaces import loss_spaces
 
@@ -181,6 +184,11 @@ def train(
     space_intersection_cosine: float = 0.999,
     space_progress: Optional[Callable[[Dict[str, Any]], None]] = None,
     space_enabled: bool = False,
+    affinity_interval: Optional[int] = 100,
+    affinity_radius: float = 0.02,
+    affinity_num_inputs: int = 64,
+    affinity_eval_batch_size: int = 256,
+    affinity_seed: int = 0,
 ) -> List[float]:
     """Train the model and optionally log per-batch metrics to W&B.
 
@@ -196,6 +204,14 @@ def train(
     updates on ``gradient_num_inputs`` fixed uniform payloads at ``max_len``.
     A separate generator seeded with ``gradient_seed`` keeps probe sampling
     independent of training randomness. Measurements only run when logging.
+    Directed task affinities are measured every ``affinity_interval`` updates
+    (default 100; None disables them). Each task's negative mean-loss gradient
+    is normalized to ``affinity_radius`` before measuring loss changes on an
+    independent fixed probe batch. Positive affinity means help, negative harm.
+    W&B receives pairwise histories and a source-row/target-column matrix.
+    ``affinity_num_inputs`` controls both probe sizes; target forwards are
+    capped at ``affinity_eval_batch_size`` examples. These uniform probes are
+    not reserved from training and do not certify held-out generalization.
     PCGrad multi-task curvature is measured every ``curvature_interval`` steps
     along that optimizer update using ``curvature_num_points`` quadrature
     points. It uses the same fixed payloads and the sum of task mean losses.
@@ -235,6 +251,15 @@ def train(
             raise ValueError("eval_interval must be a positive integer or None.")
         if not isinstance(eval_batch_size, int) or isinstance(eval_batch_size, bool) or eval_batch_size < 1:
             raise ValueError("eval_batch_size must be a positive integer.")
+    if affinity_interval is not None:
+        if not isinstance(affinity_interval, int) or isinstance(affinity_interval, bool) or affinity_interval < 1:
+            raise ValueError("affinity_interval must be a positive integer or None.")
+        if not 0 < affinity_radius < float("inf"):
+            raise ValueError("affinity_radius must be finite and positive.")
+        for label, value in (("affinity_num_inputs", affinity_num_inputs),
+                             ("affinity_eval_batch_size", affinity_eval_batch_size)):
+            if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+                raise ValueError(f"{label} must be a positive integer.")
     if not isinstance(space_enabled, bool):
         raise ValueError("space_enabled must be a boolean.")
     if space_enabled:
@@ -262,6 +287,16 @@ def train(
         generator = t.Generator(device="cpu").manual_seed(gradient_seed)
         gradient_payloads = t.randint(
             0, 2, (gradient_num_inputs, max_len - selector_size), generator=generator,
+        ).to(device)
+
+    affinity_payloads = None
+    if wandb_run is not None and affinity_interval is not None and num_steps >= affinity_interval:
+        selector_size = function.selector_size if isinstance(function, SelectorFunction) else 0
+        if max_len <= selector_size:
+            raise ValueError("Affinity inputs need at least one payload token.")
+        generator = t.Generator(device="cpu").manual_seed(affinity_seed)
+        affinity_payloads = t.randint(
+            0, 2, (2, affinity_num_inputs, max_len - selector_size), generator=generator,
         ).to(device)
 
     space_payloads = None
@@ -314,6 +349,21 @@ def train(
                 })
             if (step + 1) % gradient_interval == 0:
                 metrics.update(gradient_metrics(model, function, criterion, gradient_payloads))
+            if affinity_payloads is not None and (step + 1) % affinity_interval == 0:
+                affinity = task_affinity_metrics(
+                    model, function, criterion, affinity_payloads[0], affinity_payloads[1],
+                    radius=affinity_radius, eval_batch_size=affinity_eval_batch_size,
+                )
+                metrics.update(affinity)
+                import wandb
+
+                functions = function.functions if isinstance(function, SelectorFunction) else [function]
+                names = _unique_metric_names(functions)
+                metrics["affinity/matrix"] = wandb.Table(
+                    columns=["source / target", *names],
+                    data=[[source, *[affinity[f"affinity/{source}_to_{target}"]
+                                     for target in names]] for source in names],
+                )
             if measure_curvature:
                 metrics.update(multi_task_curvature(
                     model, function, criterion, gradient_payloads,

@@ -16,7 +16,7 @@ if cluster_cpus is not None:
     torch.set_num_threads(cluster_cpus)
     torch.set_num_interop_threads(1)
 
-from src.functions import SelectorFunction, Tribe_ws
+from src.functions import SelectorFunction, Tribe_ws, Parity_n, Majority, Majority_n, Isordered, Voting_Function
 from src.model import TransformerModel
 from src.training import sample_batch, train
 
@@ -55,6 +55,11 @@ def main() -> None:
         "gradient_interval": 20,
         "gradient_num_inputs": 256,
         "gradient_seed": seed,
+        "affinity_interval": 100,
+        "affinity_radius": 0.02,
+        "affinity_num_inputs": 64,
+        "affinity_eval_batch_size": 256,
+        "affinity_seed": seed,
         "curvature_interval": 100,
         "curvature_num_points": 3,
         "space_enabled": args.loss_spaces,
@@ -73,6 +78,7 @@ def main() -> None:
             eval_num_inputs_per_function=4, eval_batch_size=16,
             sharpness_interval=1, sharpness_num_inputs=4, sharpness_num_perturbations=1,
             gradient_interval=1, gradient_num_inputs=4,
+            affinity_interval=1, affinity_num_inputs=4, affinity_eval_batch_size=16,
             curvature_interval=1, curvature_num_points=1,
             space_num_inputs=4, space_num_directions=1,
             space_hvp_budget=4,
@@ -90,17 +96,16 @@ def main() -> None:
     loss_config = {"name": "MSELoss", "reduction": "mean"}
 
     torch.manual_seed(seed)
-    # Split the 21-bit payload (24 minus 3 selector bits) into 1 through 8 tribes.
-    # Each tribe has width floor(21 / s); leftover trailing bits are ignored.
+    # Eight tasks use a 17-bit payload (20 minus 3 selector bits).
     tasks = [
-        Tribe_ws(w=16, s=1),
-        Tribe_ws(w=8, s=2),
-        Tribe_ws(w=5, s=3),
         Tribe_ws(w=4, s=4),
-        Tribe_ws(w=3, s=5),
-        Tribe_ws(w=2, s=8),
         Tribe_ws(w=4, s=3),
-        Tribe_ws(w=3, s=3),
+        Majority(),
+        Parity_n(n=5),
+        Majority_n(n=5),
+        Voting_Function(Isordered()),
+        Parity_n(n=8),
+        Majority_n(n=8),
     ]
     mix = SelectorFunction(tasks)
 

@@ -1,6 +1,7 @@
 """Reusable metrics for boolean-function experiments."""
 
 from collections import Counter, defaultdict
+from time import perf_counter
 from typing import Dict, Iterable, Optional
 
 from numpy.polynomial.legendre import leggauss
@@ -216,6 +217,129 @@ def gradient_metrics(
             if valid[i] and valid[j]:
                 alignment = float(alignments[i, j])
             metrics[f"gradient_alignment/{name_i}_vs_{names[j]}"] = alignment
+    return metrics
+
+
+def task_affinity_metrics(
+    model: t.nn.Module,
+    function: BoolFunction,
+    criterion: t.nn.modules.loss._Loss,
+    gradient_payloads: t.Tensor,
+    evaluation_payloads: t.Tensor,
+    radius: float = 0.02,
+    eval_batch_size: int = 256,
+    norm_epsilon: float = 1e-12,
+) -> Dict[str, float]:
+    """Measure directed affinities after equal-norm task descent steps.
+
+    A[i,j] = L_j(theta) - L_j(theta - radius * g_i / ||g_i||).
+    Positive affinity means help; negative means harm. Both losses use the
+    same evaluation payloads, independently of the gradient payloads. All
+    valid tasks (including duplicates and the diagonal) participate without
+    training-probability weights. Gradients include every trainable parameter.
+    A source with a nonfinite or <= norm_epsilon gradient has an undefined
+    direction: its complete row is NaN and source_valid is zero.
+
+    Target forwards are batched across tasks with no backward pass or Hessian
+    computation. Functional parameter replacements avoid changing the model,
+    existing gradients, or optimizer state. Buffers are cloned, dropout is
+    disabled, and all module modes are restored, including on failure.
+    """
+    for label, payloads in (("gradient_payloads", gradient_payloads),
+                            ("evaluation_payloads", evaluation_payloads)):
+        if payloads.ndim != 2 or min(payloads.shape) < 1:
+            raise ValueError(f"{label} must be a nonempty 2D batch.")
+    if gradient_payloads.shape[1] != evaluation_payloads.shape[1]:
+        raise ValueError("Gradient and evaluation payload lengths must match.")
+    if not 0 < radius < float("inf"):
+        raise ValueError("radius must be finite and positive.")
+    if not 0 <= norm_epsilon < float("inf"):
+        raise ValueError("norm_epsilon must be finite and nonnegative.")
+    if not isinstance(eval_batch_size, int) or isinstance(eval_batch_size, bool) or eval_batch_size < 1:
+        raise ValueError("eval_batch_size must be a positive integer.")
+
+    parameters = dict(model.named_parameters())
+    trainable = {name: parameter for name, parameter in parameters.items() if parameter.requires_grad}
+    if not trainable:
+        raise ValueError("Task affinities require trainable model parameters.")
+    if any(payloads.device != next(iter(parameters.values())).device
+           for payloads in (gradient_payloads, evaluation_payloads)):
+        raise ValueError("Payloads and model parameters must be on the same device.")
+    compute_device = _diagnostic_device(trainable.values())
+    functions = function.functions if isinstance(function, SelectorFunction) else [function]
+    names = _unique_metric_names(functions)
+    selector_size = function.selector_size if isinstance(function, SelectorFunction) else 0
+    shifts = t.arange(selector_size - 1, -1, -1, device=gradient_payloads.device)
+
+    def task_inputs(code: int, payloads: t.Tensor) -> t.Tensor:
+        if not selector_size:
+            return payloads
+        prefix = ((code >> shifts) & 1).expand(payloads.size(0), -1)
+        return t.cat((prefix, payloads), dim=1)
+
+    evaluation_inputs = t.cat([
+        task_inputs(code, evaluation_payloads) for code in range(len(functions))
+    ])
+    evaluation_labels = [selected_function(evaluation_payloads) for selected_function in functions]
+    base = {name: parameter.detach() for name, parameter in parameters.items()}
+    buffers = {name: buffer.detach().clone() for name, buffer in model.named_buffers()}
+
+    def target_losses(point: Dict[str, t.Tensor]) -> t.Tensor:
+        with t.no_grad():
+            predictions = t.cat([
+                functional_call(model, (point, buffers), (batch,))
+                for batch in evaluation_inputs.split(eval_batch_size)
+            ]).split(evaluation_payloads.size(0))
+            return t.stack([
+                _mean_loss(criterion, outputs, labels)
+                for outputs, labels in zip(predictions, evaluation_labels)
+            ])
+
+    modes = [(module, module.training) for module in model.modules()]
+    started = perf_counter()
+    model.eval()
+    norms, rows, valid_sources = [], [], []
+    try:
+        baseline = target_losses(base)
+        for code, selected_function in enumerate(functions):
+            with t.enable_grad():
+                outputs = functional_call(model, (parameters, buffers),
+                                          (task_inputs(code, gradient_payloads),))
+                loss = _mean_loss(criterion, outputs, selected_function(gradient_payloads))
+                gradients = (t.autograd.grad(loss, tuple(trainable.values()), allow_unused=True)
+                             if loss.requires_grad else [None] * len(trainable))
+            gradients = [gradient.detach() if gradient is not None else t.zeros_like(parameter)
+                         for gradient, parameter in zip(gradients, trainable.values())]
+            # Reduce in float64 on CUDA/CPU. MPS transfers before casting.
+            norm = t.sqrt(sum(t.sum(gradient.to(compute_device).double().square())
+                              for gradient in gradients))
+            valid = bool(t.isfinite(norm) & (norm > norm_epsilon))
+            norms.append(norm)
+            valid_sources.append(valid)
+            if not valid:
+                rows.append(t.full_like(baseline, float("nan")))
+                continue
+            with t.no_grad():
+                point = dict(base)
+                # Normalize before casting back, so tiny gradient norms cannot
+                # make the scalar radius/norm overflow in the model dtype.
+                for (name, parameter), gradient in zip(trainable.items(), gradients):
+                    direction = (gradient.to(compute_device).double() / norm).to(parameter)
+                    point[name] = base[name] - radius * direction
+                rows.append(baseline - target_losses(point))
+        matrix = t.stack(rows).cpu()
+        baseline, norms = baseline.cpu(), t.stack(norms).cpu()
+    finally:
+        for module, was_training in modes:
+            module.training = was_training
+
+    metrics = {"affinity/radius": radius, "affinity/compute_seconds": perf_counter() - started}
+    for i, source in enumerate(names):
+        metrics[f"affinity/baseline_loss/{source}"] = float(baseline[i])
+        metrics[f"affinity/source_gradient_norm/{source}"] = float(norms[i])
+        metrics[f"affinity/source_valid/{source}"] = float(valid_sources[i])
+        for j, target in enumerate(names):
+            metrics[f"affinity/{source}_to_{target}"] = float(matrix[i, j])
     return metrics
 
 
