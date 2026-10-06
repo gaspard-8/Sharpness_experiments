@@ -38,6 +38,39 @@ choose the intended boundary with `threshold` explicitly.
 zero-based, `n` is included, and `m` is excluded. Ties return the negative
 label, and inputs must contain at least `m` bits.
 
+`HammingWeightSquareWave(n, L)` returns `floor(count / L) % 2`, where `count`
+is the number of ones in the first `n` input bits. It alternates zero and one
+bands of width `L`: for `L=3`, the count pattern is `0, 0, 0, 1, 1, 1, ...`.
+Both parameters must be positive integers; extra bits are ignored and
+`negative_value=-1` selects signed output labels. `L=1` gives parity, and
+`L > n` gives constant zero (or -1 with signed labels).
+`avg_sensitivity(seq_len)` computes the exact uniform average sensitivity:
+`n * P(Binomial(n-1, 1/2) % L == L-1)` for `seq_len >= n`.
+When `L` grows more slowly than `sqrt(n)`, this approaches `n / L`.
+Metric names include both parameters: `hamming_weight_square_wave_<n>_<L>`.
+
+```python
+from src.functions import HammingWeightSquareWave
+
+square_wave = HammingWeightSquareWave(n=24, L=3)
+```
+
+`Mod4SquareWave(n)` is the `L=2` specialization. It counts ones in the first
+`n` input bits and returns `1`
+when that count modulo 4 is 2 or 3, giving the repeating pattern
+`0, 0, 1, 1` as the count increases. Extra bits are ignored, and inputs must
+contain at least `n` bits. Any positive integer `n` is supported. Set
+`negative_value=-1` for -1/1 output labels; inputs remain 0/1 bits.
+Uniform average sensitivity is `n / 2` for `n >= 2`, and zero for `n = 1`.
+Within a `SelectorFunction`, `n` counts payload bits after the selector
+prefix, and accuracy is logged as `accuracy/mod4_square_wave_<n>`.
+
+```python
+from src.functions import Mod4SquareWave
+
+mod4 = Mod4SquareWave(n=10)
+```
+
 `Tribe_ws(w, s)` uses the first `w * s` payload bits as `s` consecutive,
 disjoint groups of width `w`. It returns `1` if at least one group contains
 only ones, and `0` otherwise; extra bits are ignored. Both parameters must be

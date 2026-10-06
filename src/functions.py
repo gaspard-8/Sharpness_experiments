@@ -441,6 +441,73 @@ class Parity_n(BoolFunction):
         return self.postprocess(t.sum(x[:, :self.n], dim=-1) % 2)
 
 
+class HammingWeightSquareWave(BoolFunction):
+    """Alternate 0 and 1 bands of width L in the first n bits' one count.
+
+    Inputs are 0/1 bits; additional bits are ignored. Output labels are
+    0/1 by default, or -1/1 with negative_value=-1.
+    """
+
+    bool_output = True
+
+    def __init__(
+        self,
+        n: int,
+        L: int,
+        negative_value: int = 0,
+        name: Optional[str] = None,
+    ):
+        super().__init__(negative_value=negative_value, name=name)
+        if any(isinstance(value, bool) or not isinstance(value, int) or value < 1
+               for value in (n, L)):
+            raise ValueError(f"{type(self).__name__} requires positive integers n and L.")
+        if negative_value not in (0, -1):
+            raise ValueError(f"{type(self).__name__} negative_value must be 0 or -1.")
+        self.n = n
+        self.L = L
+
+    @property
+    def metric_name(self) -> str:
+        return self._name or f"hamming_weight_square_wave_{self.n}_{self.L}"
+
+    def avg_sensitivity(self, seq_len: int) -> float:
+        """Expected number of pivotal bits under uniform random inputs."""
+        if seq_len < self.n:
+            raise ValueError(f"{type(self).__name__} requires at least n input bits.")
+        # A flip crosses a band boundary when the other n-1 bits' count is L-1 mod L.
+        pivotal_count = sum(
+            math.comb(self.n - 1, count)
+            for count in range(self.L - 1, self.n, self.L)
+        )
+        return self.n * (pivotal_count / (1 << (self.n - 1)))
+
+    def sharpness(self, seq_len: int) -> float:
+        raise NotImplementedError(f"Sharpness is not implemented for {type(self).__name__}.")
+
+    def __call__(self, x: t.Tensor) -> t.Tensor:
+        if x.ndim == 0 or x.size(-1) < self.n:
+            raise ValueError(f"{type(self).__name__} requires at least n input bits.")
+        count = x[..., :self.n].sum(dim=-1)
+        bands = t.div(count, self.L, rounding_mode="floor")
+        return self.postprocess((bands % 2).long())
+
+
+class Mod4SquareWave(HammingWeightSquareWave):
+    """Width-2 square wave: return 1 for one counts equal to 2 or 3 modulo 4."""
+
+    def __init__(
+        self,
+        n: int,
+        negative_value: int = 0,
+        name: Optional[str] = None,
+    ):
+        super().__init__(n=n, L=2, negative_value=negative_value, name=name)
+
+    @property
+    def metric_name(self) -> str:
+        return self._name or f"mod4_square_wave_{self.n}"
+
+
 class Tribe_ws(BoolFunction):
     """OR of s disjoint ANDs, each using w consecutive input bits.
 

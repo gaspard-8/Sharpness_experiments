@@ -16,7 +16,18 @@ if cluster_cpus is not None:
     torch.set_num_threads(cluster_cpus)
     torch.set_num_interop_threads(1)
 
-from src.functions import SelectorFunction, Tribe_ws, Parity_n, Majority, Majority_n, Isordered, Voting_Function
+from src.functions import (
+    HammingWeightSquareWave,
+    Isordered,
+    Majority,
+    Majority_n,
+    Parity,
+    Parity_n,
+    SelectorFunction,
+    Tribe_ws,
+    Voting_Function,
+    WeightedVoting,
+)
 from src.model import TransformerModel
 from src.training import sample_batch, train
 
@@ -39,8 +50,8 @@ def main() -> None:
     if device.type == "cuda":
         print(f"GPU: {torch.cuda.get_device_name(device)}; CUDA runtime: {torch.version.cuda}", flush=True)
     training_config = {
-        "max_len": 20,
-        "min_len": 20,
+        "max_len": 32,
+        "min_len": 32,
         "batch_size": 320,
         "num_steps": 30_000,
         "selector_probabilities": [0.125] * 8,
@@ -96,16 +107,17 @@ def main() -> None:
     loss_config = {"name": "MSELoss", "reduction": "mean"}
 
     torch.manual_seed(seed)
-    # Eight tasks use a 17-bit payload (20 minus 3 selector bits).
+    # Eight tasks use three selector bits; the remaining bits are the payload.
+    payload_len = training_config["max_len"] - 3
     tasks = [
-        Tribe_ws(w=4, s=4),
-        Tribe_ws(w=4, s=3),
+        Tribe_ws(w=5, s=5),
+        Tribe_ws(w=5, s=4),
         Majority(),
-        Parity_n(n=5),
-        Majority_n(n=5),
-        Voting_Function(Isordered()),
-        Parity_n(n=8),
-        Majority_n(n=8),
+        Parity(),
+        Parity_n(n=10),
+        Majority_n(n=10),
+        WeightedVoting(n=payload_len, weights=list(range(1, payload_len + 1))),
+        HammingWeightSquareWave(n=payload_len, L=4),
     ]
     mix = SelectorFunction(tasks)
 
