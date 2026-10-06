@@ -1,0 +1,9 @@
+id,task,safe_directions,safe_cap_reached,safe_stop_reason,sharp_directions,sharp_cap_reached,sharp_stop_reason,first_safe_loss_increase,first_sharp_loss_increase,first_sharp_over_epsilon,next_sharp_loss_increase,next_safe_loss_increase
+T1,tribe_21_1,100,1,Direction cap reached,1,0,Next candidate within epsilon,-4.768260623677634e-06,0.02838088038333808,14.19044019166904,0.00034349477573414333,
+T2,tribe_10_2,100,1,Direction cap reached,2,0,Next candidate within epsilon,-7.363815529970452e-05,0.028871668633655645,14.435834316827822,0.00024591841793153435,
+T3,tribe_7_3,100,1,Direction cap reached,2,0,Next candidate within epsilon,-0.0008027547737583518,0.03262615785934031,16.313078929670155,0.001541224541142583,
+T4,tribe_5_4,100,1,Direction cap reached,3,0,Next candidate within epsilon,-0.001226672437041998,0.02899017743766308,14.49508871883154,0.000756097724661231,
+T5,tribe_4_5,0,0,Next candidate above epsilon,5,0,Next candidate within epsilon,0.009519391984213144,0.022931948595214635,11.465974297607318,0.0009258580976165831,0.009519391984213144
+T6,tribe_3_6,100,1,Direction cap reached,4,0,Next candidate within epsilon,-0.00010219786781817675,0.02783447247929871,13.917236239649355,0.0017491609323769808,
+T7,tribe_3_7,100,1,Direction cap reached,3,0,Next candidate within epsilon,0.00041791744297370315,0.02129883784800768,10.64941892400384,0.0008778661722317338,
+T8,tribe_2_8,0,0,Next candidate above epsilon,4,0,Next candidate within epsilon,0.009082668228074908,0.027063237270340323,13.531618635170162,0.0013466512318700552,0.009082668228074908

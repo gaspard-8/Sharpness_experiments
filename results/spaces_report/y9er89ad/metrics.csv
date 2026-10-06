@@ -1,0 +1,198 @@
+group,metric,value,scope,meaning
+Settings,spaces/direction_cap,100,All tasks,Maximum accepted directions per task and kind.
+Search flags,spaces/full_space_covered/tribe_10_2,0,tribe_10_2,1 means a complete parameter basis was processed; 0 means the full dimension is not certified.
+Search flags,spaces/full_space_covered/tribe_21_1,0,tribe_21_1,1 means a complete parameter basis was processed; 0 means the full dimension is not certified.
+Search flags,spaces/full_space_covered/tribe_2_8,0,tribe_2_8,1 means a complete parameter basis was processed; 0 means the full dimension is not certified.
+Search flags,spaces/full_space_covered/tribe_3_6,0,tribe_3_6,1 means a complete parameter basis was processed; 0 means the full dimension is not certified.
+Search flags,spaces/full_space_covered/tribe_3_7,0,tribe_3_7,1 means a complete parameter basis was processed; 0 means the full dimension is not certified.
+Search flags,spaces/full_space_covered/tribe_4_5,0,tribe_4_5,1 means a complete parameter basis was processed; 0 means the full dimension is not certified.
+Search flags,spaces/full_space_covered/tribe_5_4,0,tribe_5_4,1 means a complete parameter basis was processed; 0 means the full dimension is not certified.
+Search flags,spaces/full_space_covered/tribe_7_3,0,tribe_7_3,1 means a complete parameter basis was processed; 0 means the full dimension is not certified.
+Settings,spaces/hvp_budget,10000,All tasks,"Hessian-vector product budget per task, shared by both kinds."
+Search flags,spaces/hvp_budget_exhausted/tribe_10_2,1,tribe_10_2,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/tribe_21_1,1,tribe_21_1,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/tribe_2_8,1,tribe_2_8,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/tribe_3_6,1,tribe_3_6,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/tribe_3_7,1,tribe_3_7,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/tribe_4_5,1,tribe_4_5,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/tribe_5_4,1,tribe_5_4,1 means all allowed HVPs were used; this is expected at the configured budget.
+Search flags,spaces/hvp_budget_exhausted/tribe_7_3,1,tribe_7_3,1 means all allowed HVPs were used; this is expected at the configured budget.
+Computation,spaces/hvp_count/tribe_10_2,10000,tribe_10_2,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/tribe_21_1,10000,tribe_21_1,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/tribe_2_8,10000,tribe_2_8,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/tribe_3_6,10000,tribe_3_6,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/tribe_3_7,10000,tribe_3_7,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/tribe_4_5,10000,tribe_4_5,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/tribe_5_4,10000,tribe_5_4,Actual HVP operator calls for this task.
+Computation,spaces/hvp_count/tribe_7_3,10000,tribe_7_3,Actual HVP operator calls for this task.
+Interference,spaces/interference_dim/tribe_10_2_to_tribe_21_1,0,tribe_10_2_to_tribe_21_1,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_10_2_to_tribe_2_8,0,tribe_10_2_to_tribe_2_8,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_10_2_to_tribe_3_6,0,tribe_10_2_to_tribe_3_6,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_10_2_to_tribe_3_7,0,tribe_10_2_to_tribe_3_7,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_10_2_to_tribe_4_5,0,tribe_10_2_to_tribe_4_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_10_2_to_tribe_5_4,0,tribe_10_2_to_tribe_5_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_10_2_to_tribe_7_3,0,tribe_10_2_to_tribe_7_3,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_21_1_to_tribe_10_2,0,tribe_21_1_to_tribe_10_2,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_21_1_to_tribe_2_8,0,tribe_21_1_to_tribe_2_8,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_21_1_to_tribe_3_6,0,tribe_21_1_to_tribe_3_6,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_21_1_to_tribe_3_7,0,tribe_21_1_to_tribe_3_7,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_21_1_to_tribe_4_5,0,tribe_21_1_to_tribe_4_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_21_1_to_tribe_5_4,0,tribe_21_1_to_tribe_5_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_21_1_to_tribe_7_3,0,tribe_21_1_to_tribe_7_3,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_2_8_to_tribe_10_2,0,tribe_2_8_to_tribe_10_2,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_2_8_to_tribe_21_1,0,tribe_2_8_to_tribe_21_1,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_2_8_to_tribe_3_6,0,tribe_2_8_to_tribe_3_6,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_2_8_to_tribe_3_7,0,tribe_2_8_to_tribe_3_7,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_2_8_to_tribe_4_5,0,tribe_2_8_to_tribe_4_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_2_8_to_tribe_5_4,0,tribe_2_8_to_tribe_5_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_2_8_to_tribe_7_3,0,tribe_2_8_to_tribe_7_3,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_6_to_tribe_10_2,0,tribe_3_6_to_tribe_10_2,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_6_to_tribe_21_1,0,tribe_3_6_to_tribe_21_1,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_6_to_tribe_2_8,0,tribe_3_6_to_tribe_2_8,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_6_to_tribe_3_7,0,tribe_3_6_to_tribe_3_7,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_6_to_tribe_4_5,0,tribe_3_6_to_tribe_4_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_6_to_tribe_5_4,0,tribe_3_6_to_tribe_5_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_6_to_tribe_7_3,0,tribe_3_6_to_tribe_7_3,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_7_to_tribe_10_2,0,tribe_3_7_to_tribe_10_2,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_7_to_tribe_21_1,0,tribe_3_7_to_tribe_21_1,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_7_to_tribe_2_8,0,tribe_3_7_to_tribe_2_8,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_7_to_tribe_3_6,0,tribe_3_7_to_tribe_3_6,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_7_to_tribe_4_5,0,tribe_3_7_to_tribe_4_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_7_to_tribe_5_4,0,tribe_3_7_to_tribe_5_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_3_7_to_tribe_7_3,0,tribe_3_7_to_tribe_7_3,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_4_5_to_tribe_10_2,0,tribe_4_5_to_tribe_10_2,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_4_5_to_tribe_21_1,0,tribe_4_5_to_tribe_21_1,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_4_5_to_tribe_2_8,0,tribe_4_5_to_tribe_2_8,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_4_5_to_tribe_3_6,0,tribe_4_5_to_tribe_3_6,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_4_5_to_tribe_3_7,0,tribe_4_5_to_tribe_3_7,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_4_5_to_tribe_5_4,0,tribe_4_5_to_tribe_5_4,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_4_5_to_tribe_7_3,0,tribe_4_5_to_tribe_7_3,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_5_4_to_tribe_10_2,0,tribe_5_4_to_tribe_10_2,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_5_4_to_tribe_21_1,0,tribe_5_4_to_tribe_21_1,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_5_4_to_tribe_2_8,0,tribe_5_4_to_tribe_2_8,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_5_4_to_tribe_3_6,0,tribe_5_4_to_tribe_3_6,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_5_4_to_tribe_3_7,0,tribe_5_4_to_tribe_3_7,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_5_4_to_tribe_4_5,0,tribe_5_4_to_tribe_4_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_5_4_to_tribe_7_3,0,tribe_5_4_to_tribe_7_3,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_7_3_to_tribe_10_2,0,tribe_7_3_to_tribe_10_2,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_7_3_to_tribe_21_1,0,tribe_7_3_to_tribe_21_1,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_7_3_to_tribe_2_8,0,tribe_7_3_to_tribe_2_8,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_7_3_to_tribe_3_6,0,tribe_7_3_to_tribe_3_6,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_7_3_to_tribe_3_7,0,tribe_7_3_to_tribe_3_7,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_7_3_to_tribe_4_5,0,tribe_7_3_to_tribe_4_5,Verified overlap: harmful to the source task and safe for the target task.
+Interference,spaces/interference_dim/tribe_7_3_to_tribe_5_4,0,tribe_7_3_to_tribe_5_4,Verified overlap: harmful to the source task and safe for the target task.
+Computation,spaces/krylov_dim/tribe_10_2,272,tribe_10_2,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/tribe_21_1,272,tribe_21_1,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/tribe_2_8,272,tribe_2_8,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/tribe_3_6,272,tribe_3_6,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/tribe_3_7,272,tribe_3_7,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/tribe_4_5,272,tribe_4_5,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/tribe_5_4,272,tribe_5_4,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/tribe_7_3,272,tribe_7_3,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Settings,spaces/krylov_max_dim,512,All tasks,"Maximum active basis dimension; storage bound, not the total HVP budget."
+Computation,spaces/lanczos_restarts/tribe_10_2,32,tribe_10_2,Thick restart cycles retaining extreme eigenvector estimates and gradient seeds.
+Computation,spaces/lanczos_restarts/tribe_21_1,32,tribe_21_1,Thick restart cycles retaining extreme eigenvector estimates and gradient seeds.
+Computation,spaces/lanczos_restarts/tribe_2_8,32,tribe_2_8,Thick restart cycles retaining extreme eigenvector estimates and gradient seeds.
+Computation,spaces/lanczos_restarts/tribe_3_6,32,tribe_3_6,Thick restart cycles retaining extreme eigenvector estimates and gradient seeds.
+Computation,spaces/lanczos_restarts/tribe_3_7,32,tribe_3_7,Thick restart cycles retaining extreme eigenvector estimates and gradient seeds.
+Computation,spaces/lanczos_restarts/tribe_4_5,32,tribe_4_5,Thick restart cycles retaining extreme eigenvector estimates and gradient seeds.
+Computation,spaces/lanczos_restarts/tribe_5_4,32,tribe_5_4,Thick restart cycles retaining extreme eigenvector estimates and gradient seeds.
+Computation,spaces/lanczos_restarts/tribe_7_3,32,tribe_7_3,Thick restart cycles retaining extreme eigenvector estimates and gradient seeds.
+Loss changes,spaces/max_harm/tribe_10_2,0.028871668633655645,tribe_10_2,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/tribe_21_1,0.02838088038333808,tribe_21_1,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/tribe_2_8,0.027063237270340323,tribe_2_8,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/tribe_3_6,0.02783447247929871,tribe_3_6,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/tribe_3_7,0.02129883784800768,tribe_3_7,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/tribe_4_5,0.022931948595214635,tribe_4_5,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/tribe_5_4,0.02899017743766308,tribe_5_4,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/max_harm/tribe_7_3,0.03262615785934031,tribe_7_3,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
+Loss changes,spaces/min_harm/tribe_10_2,-7.363815529970452e-05,tribe_10_2,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/tribe_21_1,-4.768260623677634e-06,tribe_21_1,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/tribe_2_8,0.009082668228074908,tribe_2_8,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/tribe_3_6,-0.00010219786781817675,tribe_3_6,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/tribe_3_7,0.00041791744297370315,tribe_3_7,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/tribe_4_5,0.009519391984213144,tribe_4_5,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/tribe_5_4,-0.001226672437041998,tribe_5_4,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Loss changes,spaces/min_harm/tribe_7_3,-0.0008027547737583518,tribe_7_3,Actual worst-sign loss increase of the first tangent candidate; not a global minimum.
+Settings,spaces/parameter_count,101761,All tasks,Number of trainable parameter coordinates.
+Numerical quality,spaces/ritz_max_relative_residual/tribe_10_2,0.0004975900000437482,tribe_10_2,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/tribe_21_1,0.0023754735098139713,tribe_21_1,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/tribe_2_8,0.00023678536011892336,tribe_2_8,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/tribe_3_6,0.11264485340055959,tribe_3_6,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/tribe_3_7,0.00023135568888573368,tribe_3_7,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/tribe_4_5,5.750566227389705e-05,tribe_4_5,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/tribe_5_4,0.06160197016091339,tribe_5_4,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Numerical quality,spaces/ritz_max_relative_residual/tribe_7_3,0.3878523071317205,tribe_7_3,Maximum relative eigen-equation error of checked Hessian Ritz modes.
+Settings,spaces/search_dim,101761,All tasks,Full parameter count; duplicates parameter_count.
+Search flags,spaces/sharpness_candidate_exhausted/tribe_10_2,0,tribe_10_2,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/tribe_21_1,0,tribe_21_1,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/tribe_2_8,0,tribe_2_8,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/tribe_3_6,0,tribe_3_6,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/tribe_3_7,0,tribe_3_7,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/tribe_4_5,0,tribe_4_5,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/tribe_5_4,0,tribe_5_4,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_candidate_exhausted/tribe_7_3,0,tribe_7_3,1 means available sharpness Krylov candidates ran out before the cap.
+Search flags,spaces/sharpness_cap_reached/tribe_10_2,0,tribe_10_2,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/tribe_21_1,0,tribe_21_1,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/tribe_2_8,0,tribe_2_8,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/tribe_3_6,0,tribe_3_6,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/tribe_3_7,0,tribe_3_7,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/tribe_4_5,0,tribe_4_5,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/tribe_5_4,0,tribe_5_4,1 means the sharpness direction cap was reached.
+Search flags,spaces/sharpness_cap_reached/tribe_7_3,0,tribe_7_3,1 means the sharpness direction cap was reached.
+Task directions,spaces/sharpness_dim/tribe_10_2,2,tribe_10_2,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/tribe_21_1,1,tribe_21_1,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/tribe_2_8,4,tribe_2_8,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/tribe_3_6,4,tribe_3_6,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/tribe_3_7,3,tribe_3_7,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/tribe_4_5,5,tribe_4_5,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/tribe_5_4,3,tribe_5_4,Independent accepted harmful basis directions; not a certified full dimension.
+Task directions,spaces/sharpness_dim/tribe_7_3,2,tribe_7_3,Independent accepted harmful basis directions; not a certified full dimension.
+Numerical quality,spaces/sharpness_max_residual/tribe_10_2,4.301326490930831e-08,tribe_10_2,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/tribe_21_1,4.838085008519439e-08,tribe_21_1,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/tribe_2_8,5.724838264370161e-08,tribe_2_8,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/tribe_3_6,1.2712907666804819e-06,tribe_3_6,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/tribe_3_7,3.340303226350772e-08,tribe_3_7,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/tribe_4_5,8.492517145592992e-08,tribe_4_5,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/tribe_5_4,2.1774023991073392e-05,tribe_5_4,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Numerical quality,spaces/sharpness_max_residual/tribe_7_3,4.2691148556526986e-07,tribe_7_3,Maximum absolute quadratic stationarity error of accepted sharpness modes.
+Loss changes,spaces/sharpness_stop_harm/tribe_10_2,0.00024591841793153435,tribe_10_2,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/tribe_21_1,0.00034349477573414333,tribe_21_1,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/tribe_2_8,0.0013466512318700552,tribe_2_8,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/tribe_3_6,0.0017491609323769808,tribe_3_6,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/tribe_3_7,0.0008778661722317338,tribe_3_7,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/tribe_4_5,0.0009258580976165831,tribe_4_5,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/tribe_5_4,0.000756097724661231,tribe_5_4,Actual worst-sign loss increase of the rejected sharpness candidate.
+Loss changes,spaces/sharpness_stop_harm/tribe_7_3,0.001541224541142583,tribe_7_3,Actual worst-sign loss increase of the rejected sharpness candidate.
+Search flags,spaces/tangent_candidate_exhausted/tribe_10_2,0,tribe_10_2,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/tribe_21_1,0,tribe_21_1,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/tribe_2_8,0,tribe_2_8,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/tribe_3_6,0,tribe_3_6,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/tribe_3_7,0,tribe_3_7,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/tribe_4_5,0,tribe_4_5,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/tribe_5_4,0,tribe_5_4,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_candidate_exhausted/tribe_7_3,0,tribe_7_3,1 means available tangent Krylov candidates ran out before the cap.
+Search flags,spaces/tangent_cap_reached/tribe_10_2,1,tribe_10_2,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/tribe_21_1,1,tribe_21_1,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/tribe_2_8,0,tribe_2_8,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/tribe_3_6,1,tribe_3_6,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/tribe_3_7,1,tribe_3_7,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/tribe_4_5,0,tribe_4_5,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/tribe_5_4,1,tribe_5_4,1 means the tangent direction cap was reached.
+Search flags,spaces/tangent_cap_reached/tribe_7_3,1,tribe_7_3,1 means the tangent direction cap was reached.
+Task directions,spaces/tangent_dim/tribe_10_2,100,tribe_10_2,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/tribe_21_1,100,tribe_21_1,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/tribe_2_8,0,tribe_2_8,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/tribe_3_6,100,tribe_3_6,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/tribe_3_7,100,tribe_3_7,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/tribe_4_5,0,tribe_4_5,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/tribe_5_4,100,tribe_5_4,Independent accepted safe basis directions; not a certified full dimension.
+Task directions,spaces/tangent_dim/tribe_7_3,100,tribe_7_3,Independent accepted safe basis directions; not a certified full dimension.
+Numerical quality,spaces/tangent_max_residual/tribe_10_2,1.1033554860530354e-05,tribe_10_2,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Numerical quality,spaces/tangent_max_residual/tribe_21_1,2.5351520319802237e-05,tribe_21_1,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Numerical quality,spaces/tangent_max_residual/tribe_3_6,0.01701603684604049,tribe_3_6,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Numerical quality,spaces/tangent_max_residual/tribe_3_7,3.190657161245838e-05,tribe_3_7,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Numerical quality,spaces/tangent_max_residual/tribe_5_4,0.03346861168254132,tribe_5_4,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Numerical quality,spaces/tangent_max_residual/tribe_7_3,0.0641784765859835,tribe_7_3,Maximum absolute projected eigen-equation error of accepted tangent modes.
+Loss changes,spaces/tangent_stop_harm/tribe_2_8,0.009082668228074908,tribe_2_8,Actual worst-sign loss increase of the rejected tangent candidate.
+Loss changes,spaces/tangent_stop_harm/tribe_4_5,0.009519391984213144,tribe_4_5,Actual worst-sign loss increase of the rejected tangent candidate.

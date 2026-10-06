@@ -6,6 +6,7 @@
     "parameter_count": 101761,
     "direction_cap": 16,
     "hvp_budget": 500,
+    "krylov_max_dim": null,
     "delta": 0.02,
     "epsilon": 0.01,
     "probes_per_task": 64,
@@ -138,6 +139,8 @@
       "task": "isordered_0_10",
       "hvp_count": 500,
       "krylov_dim": 500,
+      "lanczos_restarts": null,
+      "full_space_covered": null,
       "hvp_budget_used": 1,
       "ritz_relative_error": 3.2782800866307264e-05,
       "tangent_absolute_error": 5.82433371433397e-06,
@@ -147,6 +150,8 @@
       "task": "isrepeating_0_10",
       "hvp_count": 500,
       "krylov_dim": 500,
+      "lanczos_restarts": null,
+      "full_space_covered": null,
       "hvp_budget_used": 1,
       "ritz_relative_error": 4.385798410487216e-05,
       "tangent_absolute_error": 5.006833238577186e-06,
@@ -156,6 +161,8 @@
       "task": "Majority_0_10",
       "hvp_count": 500,
       "krylov_dim": 500,
+      "lanczos_restarts": null,
+      "full_space_covered": null,
       "hvp_budget_used": 1,
       "ritz_relative_error": 4.4906234779702485e-06,
       "tangent_absolute_error": 3.2242042434481416e-06,
@@ -165,6 +172,8 @@
       "task": "tribe_3_4",
       "hvp_count": 500,
       "krylov_dim": 500,
+      "lanczos_restarts": null,
+      "full_space_covered": null,
       "hvp_budget_used": 1,
       "ritz_relative_error": 1.0456457670787818e-05,
       "tangent_absolute_error": 1.7173689374033437e-06,
@@ -174,6 +183,8 @@
       "task": "mean_majority_parity_5",
       "hvp_count": 500,
       "krylov_dim": 500,
+      "lanczos_restarts": null,
+      "full_space_covered": null,
       "hvp_budget_used": 1,
       "ritz_relative_error": 3.893386563492814e-06,
       "tangent_absolute_error": 6.026092742278907e-06,
@@ -183,6 +194,8 @@
       "task": "mean_tribe_majority_tail",
       "hvp_count": 500,
       "krylov_dim": 500,
+      "lanczos_restarts": null,
+      "full_space_covered": null,
       "hvp_budget_used": 1,
       "ritz_relative_error": 4.71534190839028e-06,
       "tangent_absolute_error": 4.0834110781356586e-06,
@@ -192,6 +205,8 @@
       "task": "mean_middle_majority_parity_10",
       "hvp_count": 500,
       "krylov_dim": 500,
+      "lanczos_restarts": null,
+      "full_space_covered": null,
       "hvp_budget_used": 1,
       "ritz_relative_error": 3.529385183837959e-06,
       "tangent_absolute_error": 1.0324779120973153e-05,
@@ -201,6 +216,8 @@
       "task": "mean_tribe_2_5_majority_tail",
       "hvp_count": 500,
       "krylov_dim": 500,
+      "lanczos_restarts": null,
+      "full_space_covered": null,
       "hvp_budget_used": 1,
       "ritz_relative_error": 8.457517895928134e-06,
       "tangent_absolute_error": 5.114088946252715e-06,
@@ -1069,56 +1086,56 @@
       "metric": "spaces/krylov_dim/Majority_0_10",
       "value": 500,
       "scope": "Majority_0_10",
-      "meaning": "Dimension of the adaptive Hessian approximation space."
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
     },
     {
       "group": "Computation",
       "metric": "spaces/krylov_dim/isordered_0_10",
       "value": 500,
       "scope": "isordered_0_10",
-      "meaning": "Dimension of the adaptive Hessian approximation space."
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
     },
     {
       "group": "Computation",
       "metric": "spaces/krylov_dim/isrepeating_0_10",
       "value": 500,
       "scope": "isrepeating_0_10",
-      "meaning": "Dimension of the adaptive Hessian approximation space."
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
     },
     {
       "group": "Computation",
       "metric": "spaces/krylov_dim/mean_majority_parity_5",
       "value": 500,
       "scope": "mean_majority_parity_5",
-      "meaning": "Dimension of the adaptive Hessian approximation space."
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
     },
     {
       "group": "Computation",
       "metric": "spaces/krylov_dim/mean_middle_majority_parity_10",
       "value": 500,
       "scope": "mean_middle_majority_parity_10",
-      "meaning": "Dimension of the adaptive Hessian approximation space."
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
     },
     {
       "group": "Computation",
       "metric": "spaces/krylov_dim/mean_tribe_2_5_majority_tail",
       "value": 500,
       "scope": "mean_tribe_2_5_majority_tail",
-      "meaning": "Dimension of the adaptive Hessian approximation space."
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
     },
     {
       "group": "Computation",
       "metric": "spaces/krylov_dim/mean_tribe_majority_tail",
       "value": 500,
       "scope": "mean_tribe_majority_tail",
-      "meaning": "Dimension of the adaptive Hessian approximation space."
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
     },
     {
       "group": "Computation",
       "metric": "spaces/krylov_dim/tribe_3_4",
       "value": 500,
       "scope": "tribe_3_4",
-      "meaning": "Dimension of the adaptive Hessian approximation space."
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
     },
     {
       "group": "Loss changes",
@@ -1807,5 +1824,461 @@
       "meaning": "Maximum absolute projected eigen-equation error of accepted tangent modes."
     }
   ],
-  "notes": []
+  "notes": [],
+  "overlaps": {
+    "sharpness": [
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "isrepeating_0_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.851270219597083,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "Majority_0_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.3158549317036925,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "tribe_3_4",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.4887514405764294,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "mean_majority_parity_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.36498955768481733,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "mean_tribe_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.5449431289849636,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "mean_middle_majority_parity_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.05782615583679161,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.3010230164406973,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isrepeating_0_10",
+        "task_b": "Majority_0_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.16395330004452027,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isrepeating_0_10",
+        "task_b": "tribe_3_4",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.6202883590074445,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isrepeating_0_10",
+        "task_b": "mean_majority_parity_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.24157579055982847,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isrepeating_0_10",
+        "task_b": "mean_tribe_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.6776466699286254,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isrepeating_0_10",
+        "task_b": "mean_middle_majority_parity_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.09573534360815412,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isrepeating_0_10",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.35941804549638273,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "Majority_0_10",
+        "task_b": "tribe_3_4",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.6573793707608896,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "Majority_0_10",
+        "task_b": "mean_majority_parity_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.7661668934609028,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "Majority_0_10",
+        "task_b": "mean_tribe_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.5543711275419673,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "Majority_0_10",
+        "task_b": "mean_middle_majority_parity_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.7690074413177299,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "Majority_0_10",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.2939186558046924,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_4",
+        "task_b": "mean_majority_parity_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.4644487598236902,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_4",
+        "task_b": "mean_tribe_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.8088496901154104,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_4",
+        "task_b": "mean_middle_majority_parity_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.2854029133211702,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_4",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.5787674571131167,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "mean_majority_parity_5",
+        "task_b": "mean_tribe_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.6749583498204345,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "mean_majority_parity_5",
+        "task_b": "mean_middle_majority_parity_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.694681687015155,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "mean_majority_parity_5",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.44137966244019133,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "mean_tribe_majority_tail",
+        "task_b": "mean_middle_majority_parity_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.47405536998069775,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "mean_tribe_majority_tail",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.8629002325266334,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "mean_middle_majority_parity_10",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.4312063126726256,
+        "source": "Direction artifact"
+      }
+    ],
+    "tangent": [
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "isrepeating_0_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.5949516524793269,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "Majority_0_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.4023245275278666,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "tribe_3_4",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.5432928717575894,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "mean_majority_parity_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.5997178817140268,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "mean_tribe_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.5871615016913935,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "mean_middle_majority_parity_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.35655553306198706,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isordered_0_10",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.41197614621141776,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isrepeating_0_10",
+        "task_b": "Majority_0_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.22606155386173957,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isrepeating_0_10",
+        "task_b": "tribe_3_4",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.3831051983333939,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isrepeating_0_10",
+        "task_b": "mean_majority_parity_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.397289622235674,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isrepeating_0_10",
+        "task_b": "mean_tribe_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.44283396882387505,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isrepeating_0_10",
+        "task_b": "mean_middle_majority_parity_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.21023435180392167,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "isrepeating_0_10",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.30368627229964684,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "Majority_0_10",
+        "task_b": "tribe_3_4",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.21449380284321323,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "Majority_0_10",
+        "task_b": "mean_majority_parity_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.2425656042101617,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "Majority_0_10",
+        "task_b": "mean_tribe_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.23828034604644216,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "Majority_0_10",
+        "task_b": "mean_middle_majority_parity_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.8243436140839105,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "Majority_0_10",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.2750820170570035,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_4",
+        "task_b": "mean_majority_parity_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.6662107413316534,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_4",
+        "task_b": "mean_tribe_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.8506127420440246,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_4",
+        "task_b": "mean_middle_majority_parity_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.21558958843724907,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_4",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.7320187514563447,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "mean_majority_parity_5",
+        "task_b": "mean_tribe_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.7780595245492123,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "mean_majority_parity_5",
+        "task_b": "mean_middle_majority_parity_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.23551899661858272,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "mean_majority_parity_5",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.5773535107942409,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "mean_tribe_majority_tail",
+        "task_b": "mean_middle_majority_parity_10",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.20916147589472955,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "mean_tribe_majority_tail",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.7279957103431551,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "mean_middle_majority_parity_10",
+        "task_b": "mean_tribe_2_5_majority_tail",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.20349386824809687,
+        "source": "Direction artifact"
+      }
+    ]
+  },
+  "overlap_directions": [],
+  "directions_source": "/Users/gaspard/Documents/Sharpness_experiments/results/space_artifacts/wgrcwba5/spaces_step_10000.pt"
 }

@@ -180,6 +180,7 @@ def train(
     space_hvp_budget: int = 10_000,
     space_intersection_cosine: float = 0.999,
     space_progress: Optional[Callable[[Dict[str, Any]], None]] = None,
+    space_enabled: bool = False,
 ) -> List[float]:
     """Train the model and optionally log per-batch metrics to W&B.
 
@@ -203,7 +204,8 @@ def train(
     Reserved inputs are excluded from training even without a W&B logger.
     Evaluation uses ``no_grad()``, restores model modes, and runs only when
     logging. Its private seed does not consume training randomness.
-    Set ``space_delta`` to enable task-loss spaces after the final update.
+    Task-loss spaces are disabled by default. Set ``space_enabled=True`` and
+    a positive ``space_delta`` to measure them after the final update.
     Matrix-free thick-restart block Lanczos uses ``space_hvp_budget`` products
     per task, shared between sharpness and gradient-orthogonal tangent modes.
     Its active basis is bounded while eigenvector estimates survive restarts.
@@ -233,8 +235,10 @@ def train(
             raise ValueError("eval_interval must be a positive integer or None.")
         if not isinstance(eval_batch_size, int) or isinstance(eval_batch_size, bool) or eval_batch_size < 1:
             raise ValueError("eval_batch_size must be a positive integer.")
-    if space_delta is not None:
-        if not 0 < space_delta < float("inf") or not 0 <= space_epsilon < float("inf"):
+    if not isinstance(space_enabled, bool):
+        raise ValueError("space_enabled must be a boolean.")
+    if space_enabled:
+        if space_delta is None or not 0 < space_delta < float("inf") or not 0 <= space_epsilon < float("inf"):
             raise ValueError("space_delta must be positive and space_epsilon nonnegative; both finite.")
         if not isinstance(space_num_inputs, int) or isinstance(space_num_inputs, bool) or space_num_inputs < 1:
             raise ValueError("space_num_inputs must be a positive integer.")
@@ -261,7 +265,7 @@ def train(
         ).to(device)
 
     space_payloads = None
-    if wandb_run is not None and space_delta is not None:
+    if wandb_run is not None and space_enabled:
         selector_size = function.selector_size if isinstance(function, SelectorFunction) else 0
         if max_len <= selector_size:
             raise ValueError("Space inputs need at least one payload token.")
@@ -350,11 +354,14 @@ def train(
                                   "hvp_budget": space_hvp_budget,
                                   "method": "matrix_free_thick_restart_block_lanczos_loss_spaces",
                                   "krylov_max_dim": directions.get("krylov_max_dim"),
+                                  "format_version": directions.get("format_version"),
+                                  "overlap_kinds": ["sharpness", "tangent"],
                                   "search_scope": "all_trainable_parameters",
                                   "intersection_cosine": space_intersection_cosine},
                     )
                     with tempfile.TemporaryDirectory(prefix="loss-spaces-") as directory:
                         path = Path(directory) / f"spaces_step_{step + 1}.pt"
+                        directions["run_id"] = wandb_run.id
                         if space_progress is not None:
                             space_progress({"stage": "artifact_save_start", "step": step + 1})
                         t.save(directions, path)

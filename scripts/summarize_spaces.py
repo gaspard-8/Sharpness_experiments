@@ -18,6 +18,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 
 # category, explanation. These descriptions also accompany the raw CSV.
 METRICS = {
@@ -47,6 +49,16 @@ METRICS = {
     "sharpness_max_residual": ("Numerical quality", "Maximum absolute quadratic stationarity error of accepted sharpness modes."),
 }
 GLOBALS = {"parameter_count", "search_dim", "direction_cap", "hvp_budget", "krylov_max_dim"}
+PAIR_FAMILIES = {"interference_dim"}
+for _kind in ("sharpness", "tangent"):
+    for _suffix, _meaning in (
+        ("dim", "Approximate geometric overlap dimension of the two discovered spans."),
+        ("verified_dim", "Shared basis directions satisfying this kind's finite-loss check on both tasks."),
+        ("max_cosine", "Largest principal-angle cosine; 1 means a common direction, 0 means orthogonal spans."),
+    ):
+        _family = f"{_kind}_overlap_{_suffix}"
+        METRICS[_family] = ("Same-kind overlaps", _meaning)
+        PAIR_FAMILIES.add(_family)
 
 
 def number(value: Any) -> float | None:
@@ -58,6 +70,8 @@ def number(value: Any) -> float | None:
 def display(value: Any) -> str:
     if value is None:
         return "Not logged"
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
     if isinstance(value, str):
         return value
     if isinstance(value, (int, float)):
@@ -99,7 +113,8 @@ def read_config(files_directory: Path) -> tuple[dict[str, Any], list[str]]:
     }, []
 
 
-def load_report(summary_path: Path, *, epsilon: float | None = None, delta: float | None = None) -> dict[str, Any]:
+def load_report(summary_path: Path, *, epsilon: float | None = None, delta: float | None = None,
+                directions_artifact: Path | None = None) -> dict[str, Any]:
     summary = json.loads(summary_path.read_text())
     if not isinstance(summary, dict):
         raise ValueError("Summary JSON must be an object.")
@@ -107,7 +122,7 @@ def load_report(summary_path: Path, *, epsilon: float | None = None, delta: floa
     discovered = set()
     for key in metrics:
         parts = key.split("/", 2)
-        if len(parts) == 3 and parts[1] in METRICS and parts[1] != "interference_dim":
+        if len(parts) == 3 and parts[1] in METRICS and parts[1] not in PAIR_FAMILIES:
             discovered.add(parts[2])
     if not discovered:
         raise ValueError("No per-task spaces measurements were found.")
@@ -202,10 +217,105 @@ def load_report(summary_path: Path, *, epsilon: float | None = None, delta: floa
             "scope": parts[2] if len(parts) == 3 else "All tasks",
             "meaning": description,
         })
-    return {
+    report = {
         "source": str(summary_path.resolve()), "settings": settings, "tasks": task_rows,
         "quality": quality_rows, "pairs": pairs, "catalog": catalog, "notes": notes,
     }
+    add_same_kind_overlaps(report, metrics, directions_artifact)
+    return report
+
+
+def add_same_kind_overlaps(report: dict[str, Any], metrics: dict[str, Any], path: Path | None) -> None:
+    names = [row["task"] for row in report["tasks"]]
+    artifact = None
+    if path is not None:
+        import torch
+        from src.subspaces import pairwise_overlaps
+
+        artifact = torch.load(path, map_location="cpu", weights_only=True)
+        if not isinstance(artifact, dict) or set(artifact.get("tasks", {})) != set(names):
+            raise ValueError("Direction artifact tasks do not match this run.")
+        if artifact.get("run_id", report["settings"]["run_id"]) != report["settings"]["run_id"]:
+            raise ValueError("Direction artifact run ID does not match this run.")
+        coordinate_count = sum(math.prod(shape) for shape in artifact["parameter_shapes"])
+        recorded_count = report["settings"]["parameter_count"]
+        if recorded_count is not None and coordinate_count != recorded_count:
+            raise ValueError("Direction artifact parameter count does not match this run.")
+        for field in ("delta", "epsilon", "intersection_cosine"):
+            recorded = report["settings"][field]
+            actual = artifact[field]
+            if number(actual) is None or (recorded is not None and actual != recorded):
+                raise ValueError(f"Direction artifact {field} does not match this run.")
+            report["settings"][field] = actual
+        for row in report["tasks"]:
+            for kind, field in (("sharpness", "sharp_directions"), ("tangent", "safe_directions")):
+                vectors = artifact["tasks"][row["task"]][kind]
+                if (not isinstance(vectors, torch.Tensor) or vectors.ndim != 2
+                        or vectors.shape[0] != coordinate_count or not bool(torch.isfinite(vectors).all())
+                        or (row[field] is not None and vectors.shape[1] != row[field])):
+                    raise ValueError("Direction artifact basis dimensions/values do not match this run.")
+        # Old artifacts have full bases but no same-kind overlaps. Geometric
+        # intersections need only these vectors; actual new loss checks need
+        # the trained model, which is not part of these artifacts.
+        shared = artifact.get("overlaps")
+        if shared is None:
+            shared = pairwise_overlaps({name: artifact["tasks"][name] for name in names},
+                                       artifact["intersection_cosine"])
+        report["directions_source"] = str(path.resolve())
+        report["_overlap_vectors"] = {
+            "format_version": 1, "run_id": report["settings"]["run_id"],
+            "parameter_names": artifact["parameter_names"], "parameter_shapes": artifact["parameter_shapes"],
+            "delta": artifact["delta"], "epsilon": artifact["epsilon"],
+            "intersection_cosine": artifact["intersection_cosine"], "overlaps": shared,
+        }
+    else:
+        shared = None
+    report["overlaps"] = {}
+    report["overlap_directions"] = []
+    for kind in ("sharpness", "tangent"):
+        rows = []
+        by_pair = {frozenset((value["task_a"], value["task_b"])): value
+                   for value in shared[kind].values()} if shared is not None else {}
+        for index, first in enumerate(names):
+            for other_index in range(index + 1, len(names)):
+                second = names[other_index]
+                key = f"{first}_and_{second}"
+                row = {"task_a": first, "task_b": second,
+                       "directions": metrics.get(f"spaces/{kind}_overlap_dim/{key}"),
+                       "loss_verified_directions": metrics.get(f"spaces/{kind}_overlap_verified_dim/{key}"),
+                       "max_principal_cosine": metrics.get(f"spaces/{kind}_overlap_max_cosine/{key}"),
+                       "source": "W&B summary" if f"spaces/{kind}_overlap_dim/{key}" in metrics else "Not logged"}
+                if shared is not None:
+                    value = by_pair[frozenset((first, second))]
+                    count = value["directions"].shape[1]
+                    verified = value.get("loss_verified")
+                    if row["directions"] is not None and count != row["directions"]:
+                        raise ValueError("Direction artifact overlap count does not match the summary.")
+                    row.update({"directions": count,
+                                "loss_verified_directions": int(verified.sum()) if verified is not None else None,
+                                "max_principal_cosine": float(value["principal_cosines"].max())
+                                if value["principal_cosines"].numel() else None,
+                                "source": "Direction artifact"})
+                    for column in range(count):
+                        first_changes = value.get("loss_changes_a")
+                        second_changes = value.get("loss_changes_b")
+                        if value["task_a"] != first:
+                            first_changes, second_changes = second_changes, first_changes
+                        report["overlap_directions"].append({
+                            "kind": kind, "task_a": first, "task_b": second,
+                            "direction_id": f"{'S' if kind == 'sharpness' else 'T'}{index+1}_{other_index+1}_{column+1}",
+                            "principal_cosine": float(value["cosines"][column]),
+                            "task_a_plus_loss_change": float(first_changes[column, 0]) if first_changes is not None else None,
+                            "task_a_minus_loss_change": float(first_changes[column, 1]) if first_changes is not None else None,
+                            "task_b_plus_loss_change": float(second_changes[column, 0]) if second_changes is not None else None,
+                            "task_b_minus_loss_change": float(second_changes[column, 1]) if second_changes is not None else None,
+                            "loss_verified": bool(verified[column]) if verified is not None else None,
+                            "vector_file": "overlap_directions.pt", "vector_kind": kind,
+                            "vector_pair": next(key for key, item in shared[kind].items() if item is value),
+                            "vector_column": column,
+                        })
+                rows.append(row)
+        report["overlaps"][kind] = rows
 
 
 def observations(report: dict[str, Any]) -> list[str]:
@@ -247,7 +357,23 @@ def observations(report: dict[str, Any]) -> list[str]:
             "Restarts retain extreme eigenvector estimates and gradient seeds."
         )
     notes.append("Loss changes use the fixed space-measurement probes. The summaries do not describe held-out generalization, or the effects of arbitrary combinations of basis directions.")
-    notes.append("The tables use scalar summaries. Full vectors and individual +/- loss changes are in the W&B loss-spaces artifact.")
+    notes.append("Task and interference tables use scalar summaries. Full vectors and individual +/- loss changes are in the W&B loss-spaces artifact.")
+    for kind, rows in report["overlaps"].items():
+        measured = [row for row in rows if row["directions"] is not None]
+        if measured:
+            positive = sum(row["directions"] > 0 for row in measured)
+            notes.append(f"{kind.title()}–{kind} overlap: {positive}/{len(measured)} measured unordered pairs have shared directions. "
+                         "The symmetric counts use principal-angle cosines at or above the recorded overlap threshold.")
+        else:
+            notes.append(f"{kind.title()}–{kind} overlaps were not logged in this run. Supply the saved direction artifact to calculate them.")
+    if "directions_source" in report:
+        notes.append("Shared unit vectors are exported in overlap_directions.pt; overlap_directions.csv identifies each tensor column. "
+                     "At cosine below 1 a vector is a symmetric midpoint near both spans, rather than an exact intersection. "
+                     "Multiply it by delta to obtain the parameter perturbation.")
+        if any(row["directions"] is not None and row["loss_verified_directions"] is None
+               for rows in report["overlaps"].values() for row in rows):
+            notes.append("These overlaps were calculated from saved vectors. New joint +/- loss checks require the trained model; "
+                         "they are unavailable for this artifact and remain marked Not logged. Geometric overlap alone does not certify joint loss behavior.")
     return notes + report["notes"]
 
 
@@ -295,7 +421,7 @@ def tables(report: dict[str, Any]) -> list[tuple[str, str, list[str], list[list[
         ("ritz_relative_error", "Ritz relative error"), ("tangent_absolute_error", "Tangent absolute error"),
         ("sharp_absolute_error", "Sharpness absolute error"),
     ]
-    return [
+    grouped = [
         ("Task directions", "Each count concerns independent basis directions found at the recorded delta and epsilon. The loss columns show actual worst-sign changes for the first candidate, not certified global extrema. A negative worst-sign change means both signs improved the measured loss.",
          ["Task", "Safe directions", "Harmful directions", "First safe Δloss", "First sharp Δloss", "First sharp / ε"], counts),
         ("Search stopping", "The next candidate's measured loss explains threshold-based stopping. A reached cap leaves the number of additional directions unknown.",
@@ -311,6 +437,36 @@ def tables(report: dict[str, Any]) -> list[tuple[str, str, list[str], list[list[
         ("Metric groups", "Every spaces/ summary value is retained in metrics.csv with its original name, group and explanation.",
          ["Group", "Number of metrics"], groups),
     ]
+    for kind, pairs in report["overlaps"].items():
+        values = {frozenset((row["task_a"], row["task_b"])): row["directions"] for row in pairs}
+        grouped.append((
+            f"{kind.title()}–{kind} overlap matrix",
+            "Symmetric approximate geometric intersection of the discovered spans. Each unordered pair is computed once. "
+            "Zero means no principal-angle cosine reached the overlap threshold; missing values mean no measurement is available. "
+            "The diagonal is omitted. Counts do not establish the full parameter-space intersection dimension.",
+            ["Task ↓ / Task →"] + [row["id"] for row in tasks],
+            [[f"{row['id']} · {row['task']}"] + ["—" if row["task"] == other["task"]
+              else values[frozenset((row["task"], other["task"]))] for other in tasks] for row in tasks],
+        ))
+        grouped.append((
+            f"{kind.title()} overlap details",
+            "Maximum cosine shows the closest alignment even when no direction passes the threshold. "
+            "Joint loss checks count shared directions satisfying this kind on both tasks: worst-sign loss increase > epsilon "
+            "for sharpness, or <= epsilon for tangent. They require the model and can be fewer than geometric directions.",
+            ["Task A", "Task B", "Geometric directions", "Joint loss checks passed", "Maximum cosine", "Source"],
+            [[row[field] for field in ("task_a", "task_b", "directions", "loss_verified_directions",
+                                      "max_principal_cosine", "source")] for row in pairs],
+        ))
+    if report["overlap_directions"]:
+        grouped.append((
+            "Shared direction vectors", "Direction IDs refer to zero-based columns in overlap_directions.pt, indexed by kind and pair in overlap_directions.csv. "
+            "The +/- columns report actual loss changes when available; a blank measurement is not a zero change.",
+            ["Direction", "Kind", "Task A", "Task B", "Cosine", "A +Δloss", "A −Δloss", "B +Δloss", "B −Δloss", "Joint check passed"],
+            [[row[field] for field in ("direction_id", "kind", "task_a", "task_b", "principal_cosine",
+                                      "task_a_plus_loss_change", "task_a_minus_loss_change", "task_b_plus_loss_change",
+                                      "task_b_minus_loss_change", "loss_verified")] for row in report["overlap_directions"]],
+        ))
+    return grouped
 
 
 def markdown_table(headers: list[str], rows: list[list[Any]]) -> str:
@@ -345,7 +501,7 @@ footer{color:#61738a;font-size:13px;overflow-wrap:anywhere}code{font-size:13px}@
 
 def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     with path.open("w", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(rows[0]) if rows else [])
+        writer = csv.DictWriter(stream, fieldnames=list(rows[0]) if rows else [], lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
@@ -356,13 +512,39 @@ def write_report(report: dict[str, Any], directory: Path) -> None:
     title = f"Loss-space report · {run_id}"
     readings = observations(report)
     grouped_tables = tables(report)
+    filenames = ["report.md", "task_summary.csv", "interference_matrix.csv", "interference_pairs.csv",
+                 "numerical_quality.csv", "metrics.csv", "report.json", "sharpness_overlap_pairs.csv",
+                 "sharpness_overlap_matrix.csv", "tangent_overlap_pairs.csv", "tangent_overlap_matrix.csv"]
+    for kind, pairs in report["overlaps"].items():
+        write_csv(directory / f"{kind}_overlap_pairs.csv", pairs)
+        lookup = {frozenset((row["task_a"], row["task_b"])): row["directions"] for row in pairs}
+        write_csv(directory / f"{kind}_overlap_matrix.csv", [
+            {"task": row["task"], **{other["task"]: "—" if row["task"] == other["task"]
+             else lookup[frozenset((row["task"], other["task"]))] for other in report["tasks"]}}
+            for row in report["tasks"]
+        ])
+    if "_overlap_vectors" in report:
+        import torch
+        torch.save(report["_overlap_vectors"], directory / "overlap_directions.pt")
+        # Write headers even when all geometric intersections are empty.
+        fields = ["kind", "task_a", "task_b", "direction_id", "principal_cosine",
+                  "task_a_plus_loss_change", "task_a_minus_loss_change", "task_b_plus_loss_change",
+                  "task_b_minus_loss_change", "loss_verified", "vector_file", "vector_kind", "vector_pair", "vector_column"]
+        with (directory / "overlap_directions.csv").open("w", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(report["overlap_directions"])
+        filenames += ["overlap_directions.pt", "overlap_directions.csv"]
     markdown = [f"# {title}", "", f"Saved step: {display(report['settings']['step'])}. {len(report['catalog'])} space metrics grouped below.", "", "## Interpretation", ""]
     markdown += [f"- {line}" for line in readings]
     sections = []
     for heading, caption, headers, rows in grouped_tables:
         markdown += ["", f"## {heading}", "", caption, "", markdown_table(headers, rows)]
         sections.append(f"<section><h2>{html.escape(heading)}</h2><p class='caption'>{html.escape(caption)}</p>{html_table(headers, rows)}</section>")
-    markdown += ["", "## Files and provenance", "", "CSV tables: task_summary.csv, interference_pairs.csv, interference_matrix.csv, numerical_quality.csv, metrics.csv.", "", f"Source summary: {report['source']}", ""]
+    markdown += ["", "## Files and provenance", "", "Downloads: " + ", ".join(filenames) + ".",
+                 "", f"Source summary: {report['source']}", ""]
+    if "directions_source" in report:
+        markdown += [f"Source directions: {report['directions_source']}", ""]
     (directory / "report.md").write_text("\n".join(markdown), encoding="utf-8")
     write_csv(directory / "task_summary.csv", report["tasks"])
     write_csv(directory / "interference_pairs.csv", report["pairs"])
@@ -376,7 +558,8 @@ def write_report(report: dict[str, Any], directory: Path) -> None:
         }} for row in report["tasks"]
     ])
     # Machine-readable data retains original numbers, including missing values.
-    (directory / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False, allow_nan=False), encoding="utf-8")
+    public = {key: value for key, value in report.items() if not key.startswith("_")}
+    (directory / "report.json").write_text(json.dumps(public, indent=2, ensure_ascii=False, allow_nan=False), encoding="utf-8")
     recorded = [row for row in report["pairs"] if number(row["directions"]) is not None]
     positives = sum(row["directions"] > 0 for row in recorded)
     capped = sum(row["safe_cap_reached"] == 1 for row in report["tasks"])
@@ -386,14 +569,14 @@ def write_report(report: dict[str, Any], directory: Path) -> None:
     cards = [
         (f"{capped}/{len(report['tasks'])}", "Tangent caps reached"),
         (f"{display(min(sharp))}–{display(max(sharp))}" if sharp else "Not logged", "Harmful directions per task"),
-        (f"{positives}/{len(recorded)}", "Pairs with verified overlap"),
+        (f"{positives}/{len(recorded)}", "Sharpness–tangent pairs with verified overlap"),
         (display(total_hvps), "HVPs recorded across tasks"),
     ]
     card_html = "".join(f"<div class='card'><strong>{html.escape(value)}</strong><span>{html.escape(label)}</span></div>" for value, label in cards)
     interpretation = "<section><h2>Interpretation</h2><ul>" + "".join(f"<li>{html.escape(line)}</li>" for line in readings) + "</ul></section>"
     raw_rows = [[row[field] for field in ("group", "metric", "value", "meaning")] for row in report["catalog"]]
     raw = f"<section><details><summary>All {len(raw_rows)} original space metrics</summary><label for='metric-filter'>Filter by task, metric or group</label><input id='metric-filter' type='search' placeholder='Type a task or metric name'>{html_table(['Group', 'Original metric', 'Value', 'Meaning'], raw_rows, table_id='raw-metrics')}</details></section>"
-    exports = "<section><h2>Downloads</h2><p>" + " · ".join(f"<a href='{name}'>{name}</a>" for name in ("report.md", "task_summary.csv", "interference_matrix.csv", "interference_pairs.csv", "numerical_quality.csv", "metrics.csv", "report.json")) + "</p></section>"
+    exports = "<section><h2>Downloads</h2><p>" + " · ".join(f"<a href='{name}'>{name}</a>" for name in filenames) + "</p></section>"
     script = """<script>document.getElementById('metric-filter').addEventListener('input',function(){const query=this.value.toLowerCase();document.querySelectorAll('#raw-metrics tbody tr').forEach(function(row){row.hidden=!row.textContent.toLowerCase().includes(query);});});</script>"""
     page = f"<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>{html.escape(title)}</title><style>{STYLE}</style></head><body><main><h1>{html.escape(title)}</h1><p class='subtitle'>Saved step {html.escape(display(report['settings']['step']))} · {len(report['tasks'])} tasks · {len(raw_rows)} space metrics · δ={html.escape(display(report['settings']['delta']))} · ε={html.escape(display(report['settings']['epsilon']))}</p><div class='cards'>{card_html}</div>{interpretation}{''.join(sections)}{exports}{raw}<footer>Source: {html.escape(report['source'])}</footer></main>{script}</body></html>"
     (directory / "report.html").write_text(page, encoding="utf-8")
@@ -405,18 +588,32 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-dir", type=Path, default=Path("results/spaces_report"))
     parser.add_argument("--epsilon", type=float, help="Original measurement threshold if configuration is unavailable.")
     parser.add_argument("--delta", type=float, help="Original measurement radius if configuration is unavailable.")
+    parser.add_argument("--directions-artifact", type=Path, help="Saved loss-spaces .pt artifact for a single run; calculate overlaps without training.")
+    parser.add_argument("--artifact-dir", type=Path, default=Path("results/space_artifacts"),
+                        help="Automatically find spaces_step_*.pt in this directory's <run-id> subfolders.")
     args = parser.parse_args(argv)
     if not args.input.exists():
         parser.error(f"Input does not exist: {args.input}")
     summaries = [args.input] if args.input.is_file() else sorted(args.input.rglob("wandb-summary.json"))
     if not summaries:
         parser.error(f"No wandb-summary.json files found under {args.input}")
+    if args.directions_artifact is not None and len(summaries) != 1:
+        parser.error("--directions-artifact requires an input containing exactly one run; use --artifact-dir for multiple runs.")
     generated = []
     failures = []
     for path in summaries:
         try:
             report = load_report(path, epsilon=args.epsilon, delta=args.delta)
             run_id = report["settings"]["run_id"]
+            artifact_path = args.directions_artifact
+            if artifact_path is None:
+                candidates = list((args.artifact_dir / run_id).glob("spaces_step_*.pt"))
+                if len(candidates) > 1:
+                    raise ValueError(f"Multiple direction artifacts found for {run_id}; select one with --directions-artifact.")
+                artifact_path = candidates[0] if candidates else None
+            if artifact_path is not None:
+                metrics = {row["metric"]: row["value"] for row in report["catalog"]}
+                add_same_kind_overlaps(report, metrics, artifact_path)
             if run_id in {item["run_id"] for item in generated}:
                 raise ValueError(f"Duplicate run id {run_id}; analyze these runs into separate output directories.")
             destination = args.output_dir / run_id

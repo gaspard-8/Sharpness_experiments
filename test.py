@@ -22,7 +22,9 @@ from src.training import sample_batch, train
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train the sharpness experiment and log to W&B.")
-    parser.add_argument("--smoke-test", action="store_true", help="Run two small updates and all diagnostics.")
+    parser.add_argument("--smoke-test", action="store_true", help="Run two small updates and the enabled diagnostics.")
+    parser.add_argument("--loss-spaces", action=argparse.BooleanOptionalAction, default=False,
+                        help="Enable the final tangent/sharpness spaces and overlaps (disabled by default).")
     args = parser.parse_args()
     faulthandler.enable()
     seed = 7
@@ -37,10 +39,10 @@ def main() -> None:
     if device.type == "cuda":
         print(f"GPU: {torch.cuda.get_device_name(device)}; CUDA runtime: {torch.version.cuda}", flush=True)
     training_config = {
-        "max_len": 24,
-        "min_len": 24,
+        "max_len": 20,
+        "min_len": 20,
         "batch_size": 320,
-        "num_steps": 10_000,
+        "num_steps": 30_000,
         "selector_probabilities": [0.125] * 8,
         "eval_interval": 10,
         "eval_num_inputs_per_function": 320,
@@ -55,6 +57,7 @@ def main() -> None:
         "gradient_seed": seed,
         "curvature_interval": 100,
         "curvature_num_points": 3,
+        "space_enabled": args.loss_spaces,
         "space_delta": 0.02,
         "space_epsilon": 0.002,
         "space_num_inputs": 64,
@@ -74,6 +77,7 @@ def main() -> None:
             space_num_inputs=4, space_num_directions=1,
             space_hvp_budget=4,
         )
+    print(f"Final loss-space diagnostics: {'enabled' if training_config['space_enabled'] else 'disabled'}", flush=True)
     model_config = {
         "d_model": 64,
         "num_attn_heads": 4,

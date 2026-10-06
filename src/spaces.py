@@ -10,6 +10,7 @@ from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from src.functions import BoolFunction, SelectorFunction
 from src.metrics import _diagnostic_device, _mean_loss, _unique_metric_names
+from src.subspaces import pairwise_overlaps
 
 
 def _flatten(parts: tuple[t.Tensor | None, ...], parameters: list[t.Tensor]) -> t.Tensor:
@@ -555,18 +556,30 @@ def loss_spaces(
                     }
                     metrics[f"spaces/interference_dim/{key}"] = float(directions.shape[1])
                 report("interference_source_complete", task=source)
+            report("same_kind_overlaps_start")
+            overlaps = pairwise_overlaps(
+                task_results, intersection_cosine, loss_changes=loss_changes,
+                epsilon=epsilon, progress=progress,
+            )
+            for kind, pairs in overlaps.items():
+                for key, result in pairs.items():
+                    metrics[f"spaces/{kind}_overlap_dim/{key}"] = float(result["directions"].shape[1])
+                    metrics[f"spaces/{kind}_overlap_verified_dim/{key}"] = float(result["loss_verified"].sum())
+                    if result["principal_cosines"].numel():
+                        metrics[f"spaces/{kind}_overlap_max_cosine/{key}"] = float(result["principal_cosines"].max())
             report("artifact_cpu_export")
     finally:
         for module, was_training in modes:
             module.training = was_training
 
     artifact = {
-        "format_version": 4,
+        "format_version": 5,
         "method": "matrix_free_thick_restart_block_lanczos_loss_spaces",
         "parameter_names": names,
         "parameter_shapes": [tuple(p.shape) for p in parameters],
         "tasks": task_results,
         "interference": interference,
+        "overlaps": overlaps,
         "delta": delta,
         "epsilon": epsilon,
         "num_directions": num_directions,

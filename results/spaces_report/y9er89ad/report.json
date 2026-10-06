@@ -1,0 +1,2403 @@
+{
+  "source": "/Users/gaspard/Documents/Sharpness_experiments/unzipped_results/results/wandb/wandb/run-20261005_151051-y9er89ad/files/wandb-summary.json",
+  "settings": {
+    "run_id": "y9er89ad",
+    "step": 10000,
+    "parameter_count": 101761,
+    "direction_cap": 100,
+    "hvp_budget": 10000,
+    "krylov_max_dim": 512,
+    "delta": 0.02,
+    "epsilon": 0.002,
+    "probes_per_task": 64,
+    "intersection_cosine": 0.999
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "task": "tribe_21_1",
+      "safe_directions": 100,
+      "safe_cap_reached": 1,
+      "safe_stop_reason": "Direction cap reached",
+      "sharp_directions": 1,
+      "sharp_cap_reached": 0,
+      "sharp_stop_reason": "Next candidate within epsilon",
+      "first_safe_loss_increase": -4.768260623677634e-06,
+      "first_sharp_loss_increase": 0.02838088038333808,
+      "first_sharp_over_epsilon": 14.19044019166904,
+      "next_sharp_loss_increase": 0.00034349477573414333,
+      "next_safe_loss_increase": null
+    },
+    {
+      "id": "T2",
+      "task": "tribe_10_2",
+      "safe_directions": 100,
+      "safe_cap_reached": 1,
+      "safe_stop_reason": "Direction cap reached",
+      "sharp_directions": 2,
+      "sharp_cap_reached": 0,
+      "sharp_stop_reason": "Next candidate within epsilon",
+      "first_safe_loss_increase": -7.363815529970452e-05,
+      "first_sharp_loss_increase": 0.028871668633655645,
+      "first_sharp_over_epsilon": 14.435834316827822,
+      "next_sharp_loss_increase": 0.00024591841793153435,
+      "next_safe_loss_increase": null
+    },
+    {
+      "id": "T3",
+      "task": "tribe_7_3",
+      "safe_directions": 100,
+      "safe_cap_reached": 1,
+      "safe_stop_reason": "Direction cap reached",
+      "sharp_directions": 2,
+      "sharp_cap_reached": 0,
+      "sharp_stop_reason": "Next candidate within epsilon",
+      "first_safe_loss_increase": -0.0008027547737583518,
+      "first_sharp_loss_increase": 0.03262615785934031,
+      "first_sharp_over_epsilon": 16.313078929670155,
+      "next_sharp_loss_increase": 0.001541224541142583,
+      "next_safe_loss_increase": null
+    },
+    {
+      "id": "T4",
+      "task": "tribe_5_4",
+      "safe_directions": 100,
+      "safe_cap_reached": 1,
+      "safe_stop_reason": "Direction cap reached",
+      "sharp_directions": 3,
+      "sharp_cap_reached": 0,
+      "sharp_stop_reason": "Next candidate within epsilon",
+      "first_safe_loss_increase": -0.001226672437041998,
+      "first_sharp_loss_increase": 0.02899017743766308,
+      "first_sharp_over_epsilon": 14.49508871883154,
+      "next_sharp_loss_increase": 0.000756097724661231,
+      "next_safe_loss_increase": null
+    },
+    {
+      "id": "T5",
+      "task": "tribe_4_5",
+      "safe_directions": 0,
+      "safe_cap_reached": 0,
+      "safe_stop_reason": "Next candidate above epsilon",
+      "sharp_directions": 5,
+      "sharp_cap_reached": 0,
+      "sharp_stop_reason": "Next candidate within epsilon",
+      "first_safe_loss_increase": 0.009519391984213144,
+      "first_sharp_loss_increase": 0.022931948595214635,
+      "first_sharp_over_epsilon": 11.465974297607318,
+      "next_sharp_loss_increase": 0.0009258580976165831,
+      "next_safe_loss_increase": 0.009519391984213144
+    },
+    {
+      "id": "T6",
+      "task": "tribe_3_6",
+      "safe_directions": 100,
+      "safe_cap_reached": 1,
+      "safe_stop_reason": "Direction cap reached",
+      "sharp_directions": 4,
+      "sharp_cap_reached": 0,
+      "sharp_stop_reason": "Next candidate within epsilon",
+      "first_safe_loss_increase": -0.00010219786781817675,
+      "first_sharp_loss_increase": 0.02783447247929871,
+      "first_sharp_over_epsilon": 13.917236239649355,
+      "next_sharp_loss_increase": 0.0017491609323769808,
+      "next_safe_loss_increase": null
+    },
+    {
+      "id": "T7",
+      "task": "tribe_3_7",
+      "safe_directions": 100,
+      "safe_cap_reached": 1,
+      "safe_stop_reason": "Direction cap reached",
+      "sharp_directions": 3,
+      "sharp_cap_reached": 0,
+      "sharp_stop_reason": "Next candidate within epsilon",
+      "first_safe_loss_increase": 0.00041791744297370315,
+      "first_sharp_loss_increase": 0.02129883784800768,
+      "first_sharp_over_epsilon": 10.64941892400384,
+      "next_sharp_loss_increase": 0.0008778661722317338,
+      "next_safe_loss_increase": null
+    },
+    {
+      "id": "T8",
+      "task": "tribe_2_8",
+      "safe_directions": 0,
+      "safe_cap_reached": 0,
+      "safe_stop_reason": "Next candidate above epsilon",
+      "sharp_directions": 4,
+      "sharp_cap_reached": 0,
+      "sharp_stop_reason": "Next candidate within epsilon",
+      "first_safe_loss_increase": 0.009082668228074908,
+      "first_sharp_loss_increase": 0.027063237270340323,
+      "first_sharp_over_epsilon": 13.531618635170162,
+      "next_sharp_loss_increase": 0.0013466512318700552,
+      "next_safe_loss_increase": 0.009082668228074908
+    }
+  ],
+  "quality": [
+    {
+      "task": "tribe_21_1",
+      "hvp_count": 10000,
+      "krylov_dim": 272,
+      "lanczos_restarts": 32,
+      "full_space_covered": 0,
+      "hvp_budget_used": 1,
+      "ritz_relative_error": 0.0023754735098139713,
+      "tangent_absolute_error": 2.5351520319802237e-05,
+      "sharp_absolute_error": 4.838085008519439e-08
+    },
+    {
+      "task": "tribe_10_2",
+      "hvp_count": 10000,
+      "krylov_dim": 272,
+      "lanczos_restarts": 32,
+      "full_space_covered": 0,
+      "hvp_budget_used": 1,
+      "ritz_relative_error": 0.0004975900000437482,
+      "tangent_absolute_error": 1.1033554860530354e-05,
+      "sharp_absolute_error": 4.301326490930831e-08
+    },
+    {
+      "task": "tribe_7_3",
+      "hvp_count": 10000,
+      "krylov_dim": 272,
+      "lanczos_restarts": 32,
+      "full_space_covered": 0,
+      "hvp_budget_used": 1,
+      "ritz_relative_error": 0.3878523071317205,
+      "tangent_absolute_error": 0.0641784765859835,
+      "sharp_absolute_error": 4.2691148556526986e-07
+    },
+    {
+      "task": "tribe_5_4",
+      "hvp_count": 10000,
+      "krylov_dim": 272,
+      "lanczos_restarts": 32,
+      "full_space_covered": 0,
+      "hvp_budget_used": 1,
+      "ritz_relative_error": 0.06160197016091339,
+      "tangent_absolute_error": 0.03346861168254132,
+      "sharp_absolute_error": 2.1774023991073392e-05
+    },
+    {
+      "task": "tribe_4_5",
+      "hvp_count": 10000,
+      "krylov_dim": 272,
+      "lanczos_restarts": 32,
+      "full_space_covered": 0,
+      "hvp_budget_used": 1,
+      "ritz_relative_error": 5.750566227389705e-05,
+      "tangent_absolute_error": null,
+      "sharp_absolute_error": 8.492517145592992e-08
+    },
+    {
+      "task": "tribe_3_6",
+      "hvp_count": 10000,
+      "krylov_dim": 272,
+      "lanczos_restarts": 32,
+      "full_space_covered": 0,
+      "hvp_budget_used": 1,
+      "ritz_relative_error": 0.11264485340055959,
+      "tangent_absolute_error": 0.01701603684604049,
+      "sharp_absolute_error": 1.2712907666804819e-06
+    },
+    {
+      "task": "tribe_3_7",
+      "hvp_count": 10000,
+      "krylov_dim": 272,
+      "lanczos_restarts": 32,
+      "full_space_covered": 0,
+      "hvp_budget_used": 1,
+      "ritz_relative_error": 0.00023135568888573368,
+      "tangent_absolute_error": 3.190657161245838e-05,
+      "sharp_absolute_error": 3.340303226350772e-08
+    },
+    {
+      "task": "tribe_2_8",
+      "hvp_count": 10000,
+      "krylov_dim": 272,
+      "lanczos_restarts": 32,
+      "full_space_covered": 0,
+      "hvp_budget_used": 1,
+      "ritz_relative_error": 0.00023678536011892336,
+      "tangent_absolute_error": null,
+      "sharp_absolute_error": 5.724838264370161e-08
+    }
+  ],
+  "pairs": [
+    {
+      "safe_task": "tribe_21_1",
+      "harmed_task": "tribe_10_2",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_21_1"
+    },
+    {
+      "safe_task": "tribe_21_1",
+      "harmed_task": "tribe_7_3",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_21_1"
+    },
+    {
+      "safe_task": "tribe_21_1",
+      "harmed_task": "tribe_5_4",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_21_1"
+    },
+    {
+      "safe_task": "tribe_21_1",
+      "harmed_task": "tribe_4_5",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_21_1"
+    },
+    {
+      "safe_task": "tribe_21_1",
+      "harmed_task": "tribe_3_6",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_21_1"
+    },
+    {
+      "safe_task": "tribe_21_1",
+      "harmed_task": "tribe_3_7",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_21_1"
+    },
+    {
+      "safe_task": "tribe_21_1",
+      "harmed_task": "tribe_2_8",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_21_1"
+    },
+    {
+      "safe_task": "tribe_10_2",
+      "harmed_task": "tribe_21_1",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_10_2"
+    },
+    {
+      "safe_task": "tribe_10_2",
+      "harmed_task": "tribe_7_3",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_10_2"
+    },
+    {
+      "safe_task": "tribe_10_2",
+      "harmed_task": "tribe_5_4",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_10_2"
+    },
+    {
+      "safe_task": "tribe_10_2",
+      "harmed_task": "tribe_4_5",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_10_2"
+    },
+    {
+      "safe_task": "tribe_10_2",
+      "harmed_task": "tribe_3_6",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_10_2"
+    },
+    {
+      "safe_task": "tribe_10_2",
+      "harmed_task": "tribe_3_7",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_10_2"
+    },
+    {
+      "safe_task": "tribe_10_2",
+      "harmed_task": "tribe_2_8",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_10_2"
+    },
+    {
+      "safe_task": "tribe_7_3",
+      "harmed_task": "tribe_21_1",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_7_3"
+    },
+    {
+      "safe_task": "tribe_7_3",
+      "harmed_task": "tribe_10_2",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_7_3"
+    },
+    {
+      "safe_task": "tribe_7_3",
+      "harmed_task": "tribe_5_4",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_7_3"
+    },
+    {
+      "safe_task": "tribe_7_3",
+      "harmed_task": "tribe_4_5",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_7_3"
+    },
+    {
+      "safe_task": "tribe_7_3",
+      "harmed_task": "tribe_3_6",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_7_3"
+    },
+    {
+      "safe_task": "tribe_7_3",
+      "harmed_task": "tribe_3_7",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_7_3"
+    },
+    {
+      "safe_task": "tribe_7_3",
+      "harmed_task": "tribe_2_8",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_7_3"
+    },
+    {
+      "safe_task": "tribe_5_4",
+      "harmed_task": "tribe_21_1",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_5_4"
+    },
+    {
+      "safe_task": "tribe_5_4",
+      "harmed_task": "tribe_10_2",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_5_4"
+    },
+    {
+      "safe_task": "tribe_5_4",
+      "harmed_task": "tribe_7_3",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_5_4"
+    },
+    {
+      "safe_task": "tribe_5_4",
+      "harmed_task": "tribe_4_5",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_5_4"
+    },
+    {
+      "safe_task": "tribe_5_4",
+      "harmed_task": "tribe_3_6",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_5_4"
+    },
+    {
+      "safe_task": "tribe_5_4",
+      "harmed_task": "tribe_3_7",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_5_4"
+    },
+    {
+      "safe_task": "tribe_5_4",
+      "harmed_task": "tribe_2_8",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_5_4"
+    },
+    {
+      "safe_task": "tribe_4_5",
+      "harmed_task": "tribe_21_1",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_4_5"
+    },
+    {
+      "safe_task": "tribe_4_5",
+      "harmed_task": "tribe_10_2",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_4_5"
+    },
+    {
+      "safe_task": "tribe_4_5",
+      "harmed_task": "tribe_7_3",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_4_5"
+    },
+    {
+      "safe_task": "tribe_4_5",
+      "harmed_task": "tribe_5_4",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_4_5"
+    },
+    {
+      "safe_task": "tribe_4_5",
+      "harmed_task": "tribe_3_6",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_4_5"
+    },
+    {
+      "safe_task": "tribe_4_5",
+      "harmed_task": "tribe_3_7",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_4_5"
+    },
+    {
+      "safe_task": "tribe_4_5",
+      "harmed_task": "tribe_2_8",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_4_5"
+    },
+    {
+      "safe_task": "tribe_3_6",
+      "harmed_task": "tribe_21_1",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_3_6"
+    },
+    {
+      "safe_task": "tribe_3_6",
+      "harmed_task": "tribe_10_2",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_3_6"
+    },
+    {
+      "safe_task": "tribe_3_6",
+      "harmed_task": "tribe_7_3",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_3_6"
+    },
+    {
+      "safe_task": "tribe_3_6",
+      "harmed_task": "tribe_5_4",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_3_6"
+    },
+    {
+      "safe_task": "tribe_3_6",
+      "harmed_task": "tribe_4_5",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_3_6"
+    },
+    {
+      "safe_task": "tribe_3_6",
+      "harmed_task": "tribe_3_7",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_3_6"
+    },
+    {
+      "safe_task": "tribe_3_6",
+      "harmed_task": "tribe_2_8",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_3_6"
+    },
+    {
+      "safe_task": "tribe_3_7",
+      "harmed_task": "tribe_21_1",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_3_7"
+    },
+    {
+      "safe_task": "tribe_3_7",
+      "harmed_task": "tribe_10_2",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_3_7"
+    },
+    {
+      "safe_task": "tribe_3_7",
+      "harmed_task": "tribe_7_3",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_3_7"
+    },
+    {
+      "safe_task": "tribe_3_7",
+      "harmed_task": "tribe_5_4",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_3_7"
+    },
+    {
+      "safe_task": "tribe_3_7",
+      "harmed_task": "tribe_4_5",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_3_7"
+    },
+    {
+      "safe_task": "tribe_3_7",
+      "harmed_task": "tribe_3_6",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_3_7"
+    },
+    {
+      "safe_task": "tribe_3_7",
+      "harmed_task": "tribe_2_8",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_3_7"
+    },
+    {
+      "safe_task": "tribe_2_8",
+      "harmed_task": "tribe_21_1",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_2_8"
+    },
+    {
+      "safe_task": "tribe_2_8",
+      "harmed_task": "tribe_10_2",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_2_8"
+    },
+    {
+      "safe_task": "tribe_2_8",
+      "harmed_task": "tribe_7_3",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_2_8"
+    },
+    {
+      "safe_task": "tribe_2_8",
+      "harmed_task": "tribe_5_4",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_2_8"
+    },
+    {
+      "safe_task": "tribe_2_8",
+      "harmed_task": "tribe_4_5",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_2_8"
+    },
+    {
+      "safe_task": "tribe_2_8",
+      "harmed_task": "tribe_3_6",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_2_8"
+    },
+    {
+      "safe_task": "tribe_2_8",
+      "harmed_task": "tribe_3_7",
+      "directions": 0,
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_2_8"
+    }
+  ],
+  "catalog": [
+    {
+      "group": "Settings",
+      "metric": "spaces/direction_cap",
+      "value": 100,
+      "scope": "All tasks",
+      "meaning": "Maximum accepted directions per task and kind."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/full_space_covered/tribe_10_2",
+      "value": 0,
+      "scope": "tribe_10_2",
+      "meaning": "1 means a complete parameter basis was processed; 0 means the full dimension is not certified."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/full_space_covered/tribe_21_1",
+      "value": 0,
+      "scope": "tribe_21_1",
+      "meaning": "1 means a complete parameter basis was processed; 0 means the full dimension is not certified."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/full_space_covered/tribe_2_8",
+      "value": 0,
+      "scope": "tribe_2_8",
+      "meaning": "1 means a complete parameter basis was processed; 0 means the full dimension is not certified."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/full_space_covered/tribe_3_6",
+      "value": 0,
+      "scope": "tribe_3_6",
+      "meaning": "1 means a complete parameter basis was processed; 0 means the full dimension is not certified."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/full_space_covered/tribe_3_7",
+      "value": 0,
+      "scope": "tribe_3_7",
+      "meaning": "1 means a complete parameter basis was processed; 0 means the full dimension is not certified."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/full_space_covered/tribe_4_5",
+      "value": 0,
+      "scope": "tribe_4_5",
+      "meaning": "1 means a complete parameter basis was processed; 0 means the full dimension is not certified."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/full_space_covered/tribe_5_4",
+      "value": 0,
+      "scope": "tribe_5_4",
+      "meaning": "1 means a complete parameter basis was processed; 0 means the full dimension is not certified."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/full_space_covered/tribe_7_3",
+      "value": 0,
+      "scope": "tribe_7_3",
+      "meaning": "1 means a complete parameter basis was processed; 0 means the full dimension is not certified."
+    },
+    {
+      "group": "Settings",
+      "metric": "spaces/hvp_budget",
+      "value": 10000,
+      "scope": "All tasks",
+      "meaning": "Hessian-vector product budget per task, shared by both kinds."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/hvp_budget_exhausted/tribe_10_2",
+      "value": 1,
+      "scope": "tribe_10_2",
+      "meaning": "1 means all allowed HVPs were used; this is expected at the configured budget."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/hvp_budget_exhausted/tribe_21_1",
+      "value": 1,
+      "scope": "tribe_21_1",
+      "meaning": "1 means all allowed HVPs were used; this is expected at the configured budget."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/hvp_budget_exhausted/tribe_2_8",
+      "value": 1,
+      "scope": "tribe_2_8",
+      "meaning": "1 means all allowed HVPs were used; this is expected at the configured budget."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/hvp_budget_exhausted/tribe_3_6",
+      "value": 1,
+      "scope": "tribe_3_6",
+      "meaning": "1 means all allowed HVPs were used; this is expected at the configured budget."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/hvp_budget_exhausted/tribe_3_7",
+      "value": 1,
+      "scope": "tribe_3_7",
+      "meaning": "1 means all allowed HVPs were used; this is expected at the configured budget."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/hvp_budget_exhausted/tribe_4_5",
+      "value": 1,
+      "scope": "tribe_4_5",
+      "meaning": "1 means all allowed HVPs were used; this is expected at the configured budget."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/hvp_budget_exhausted/tribe_5_4",
+      "value": 1,
+      "scope": "tribe_5_4",
+      "meaning": "1 means all allowed HVPs were used; this is expected at the configured budget."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/hvp_budget_exhausted/tribe_7_3",
+      "value": 1,
+      "scope": "tribe_7_3",
+      "meaning": "1 means all allowed HVPs were used; this is expected at the configured budget."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/hvp_count/tribe_10_2",
+      "value": 10000,
+      "scope": "tribe_10_2",
+      "meaning": "Actual HVP operator calls for this task."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/hvp_count/tribe_21_1",
+      "value": 10000,
+      "scope": "tribe_21_1",
+      "meaning": "Actual HVP operator calls for this task."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/hvp_count/tribe_2_8",
+      "value": 10000,
+      "scope": "tribe_2_8",
+      "meaning": "Actual HVP operator calls for this task."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/hvp_count/tribe_3_6",
+      "value": 10000,
+      "scope": "tribe_3_6",
+      "meaning": "Actual HVP operator calls for this task."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/hvp_count/tribe_3_7",
+      "value": 10000,
+      "scope": "tribe_3_7",
+      "meaning": "Actual HVP operator calls for this task."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/hvp_count/tribe_4_5",
+      "value": 10000,
+      "scope": "tribe_4_5",
+      "meaning": "Actual HVP operator calls for this task."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/hvp_count/tribe_5_4",
+      "value": 10000,
+      "scope": "tribe_5_4",
+      "meaning": "Actual HVP operator calls for this task."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/hvp_count/tribe_7_3",
+      "value": 10000,
+      "scope": "tribe_7_3",
+      "meaning": "Actual HVP operator calls for this task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_21_1",
+      "value": 0,
+      "scope": "tribe_10_2_to_tribe_21_1",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_2_8",
+      "value": 0,
+      "scope": "tribe_10_2_to_tribe_2_8",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_3_6",
+      "value": 0,
+      "scope": "tribe_10_2_to_tribe_3_6",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_3_7",
+      "value": 0,
+      "scope": "tribe_10_2_to_tribe_3_7",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_4_5",
+      "value": 0,
+      "scope": "tribe_10_2_to_tribe_4_5",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_5_4",
+      "value": 0,
+      "scope": "tribe_10_2_to_tribe_5_4",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_10_2_to_tribe_7_3",
+      "value": 0,
+      "scope": "tribe_10_2_to_tribe_7_3",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_10_2",
+      "value": 0,
+      "scope": "tribe_21_1_to_tribe_10_2",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_2_8",
+      "value": 0,
+      "scope": "tribe_21_1_to_tribe_2_8",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_3_6",
+      "value": 0,
+      "scope": "tribe_21_1_to_tribe_3_6",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_3_7",
+      "value": 0,
+      "scope": "tribe_21_1_to_tribe_3_7",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_4_5",
+      "value": 0,
+      "scope": "tribe_21_1_to_tribe_4_5",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_5_4",
+      "value": 0,
+      "scope": "tribe_21_1_to_tribe_5_4",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_21_1_to_tribe_7_3",
+      "value": 0,
+      "scope": "tribe_21_1_to_tribe_7_3",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_10_2",
+      "value": 0,
+      "scope": "tribe_2_8_to_tribe_10_2",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_21_1",
+      "value": 0,
+      "scope": "tribe_2_8_to_tribe_21_1",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_3_6",
+      "value": 0,
+      "scope": "tribe_2_8_to_tribe_3_6",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_3_7",
+      "value": 0,
+      "scope": "tribe_2_8_to_tribe_3_7",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_4_5",
+      "value": 0,
+      "scope": "tribe_2_8_to_tribe_4_5",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_5_4",
+      "value": 0,
+      "scope": "tribe_2_8_to_tribe_5_4",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_2_8_to_tribe_7_3",
+      "value": 0,
+      "scope": "tribe_2_8_to_tribe_7_3",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_10_2",
+      "value": 0,
+      "scope": "tribe_3_6_to_tribe_10_2",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_21_1",
+      "value": 0,
+      "scope": "tribe_3_6_to_tribe_21_1",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_2_8",
+      "value": 0,
+      "scope": "tribe_3_6_to_tribe_2_8",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_3_7",
+      "value": 0,
+      "scope": "tribe_3_6_to_tribe_3_7",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_4_5",
+      "value": 0,
+      "scope": "tribe_3_6_to_tribe_4_5",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_5_4",
+      "value": 0,
+      "scope": "tribe_3_6_to_tribe_5_4",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_6_to_tribe_7_3",
+      "value": 0,
+      "scope": "tribe_3_6_to_tribe_7_3",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_10_2",
+      "value": 0,
+      "scope": "tribe_3_7_to_tribe_10_2",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_21_1",
+      "value": 0,
+      "scope": "tribe_3_7_to_tribe_21_1",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_2_8",
+      "value": 0,
+      "scope": "tribe_3_7_to_tribe_2_8",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_3_6",
+      "value": 0,
+      "scope": "tribe_3_7_to_tribe_3_6",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_4_5",
+      "value": 0,
+      "scope": "tribe_3_7_to_tribe_4_5",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_5_4",
+      "value": 0,
+      "scope": "tribe_3_7_to_tribe_5_4",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_3_7_to_tribe_7_3",
+      "value": 0,
+      "scope": "tribe_3_7_to_tribe_7_3",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_10_2",
+      "value": 0,
+      "scope": "tribe_4_5_to_tribe_10_2",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_21_1",
+      "value": 0,
+      "scope": "tribe_4_5_to_tribe_21_1",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_2_8",
+      "value": 0,
+      "scope": "tribe_4_5_to_tribe_2_8",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_3_6",
+      "value": 0,
+      "scope": "tribe_4_5_to_tribe_3_6",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_3_7",
+      "value": 0,
+      "scope": "tribe_4_5_to_tribe_3_7",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_5_4",
+      "value": 0,
+      "scope": "tribe_4_5_to_tribe_5_4",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_4_5_to_tribe_7_3",
+      "value": 0,
+      "scope": "tribe_4_5_to_tribe_7_3",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_10_2",
+      "value": 0,
+      "scope": "tribe_5_4_to_tribe_10_2",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_21_1",
+      "value": 0,
+      "scope": "tribe_5_4_to_tribe_21_1",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_2_8",
+      "value": 0,
+      "scope": "tribe_5_4_to_tribe_2_8",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_3_6",
+      "value": 0,
+      "scope": "tribe_5_4_to_tribe_3_6",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_3_7",
+      "value": 0,
+      "scope": "tribe_5_4_to_tribe_3_7",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_4_5",
+      "value": 0,
+      "scope": "tribe_5_4_to_tribe_4_5",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_5_4_to_tribe_7_3",
+      "value": 0,
+      "scope": "tribe_5_4_to_tribe_7_3",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_10_2",
+      "value": 0,
+      "scope": "tribe_7_3_to_tribe_10_2",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_21_1",
+      "value": 0,
+      "scope": "tribe_7_3_to_tribe_21_1",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_2_8",
+      "value": 0,
+      "scope": "tribe_7_3_to_tribe_2_8",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_3_6",
+      "value": 0,
+      "scope": "tribe_7_3_to_tribe_3_6",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_3_7",
+      "value": 0,
+      "scope": "tribe_7_3_to_tribe_3_7",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_4_5",
+      "value": 0,
+      "scope": "tribe_7_3_to_tribe_4_5",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Interference",
+      "metric": "spaces/interference_dim/tribe_7_3_to_tribe_5_4",
+      "value": 0,
+      "scope": "tribe_7_3_to_tribe_5_4",
+      "meaning": "Verified overlap: harmful to the source task and safe for the target task."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/krylov_dim/tribe_10_2",
+      "value": 272,
+      "scope": "tribe_10_2",
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/krylov_dim/tribe_21_1",
+      "value": 272,
+      "scope": "tribe_21_1",
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/krylov_dim/tribe_2_8",
+      "value": 272,
+      "scope": "tribe_2_8",
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/krylov_dim/tribe_3_6",
+      "value": 272,
+      "scope": "tribe_3_6",
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/krylov_dim/tribe_3_7",
+      "value": 272,
+      "scope": "tribe_3_7",
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/krylov_dim/tribe_4_5",
+      "value": 272,
+      "scope": "tribe_4_5",
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/krylov_dim/tribe_5_4",
+      "value": 272,
+      "scope": "tribe_5_4",
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/krylov_dim/tribe_7_3",
+      "value": 272,
+      "scope": "tribe_7_3",
+      "meaning": "Final active Hessian approximation dimension; can be smaller than HVP count after restarts."
+    },
+    {
+      "group": "Settings",
+      "metric": "spaces/krylov_max_dim",
+      "value": 512,
+      "scope": "All tasks",
+      "meaning": "Maximum active basis dimension; storage bound, not the total HVP budget."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/lanczos_restarts/tribe_10_2",
+      "value": 32,
+      "scope": "tribe_10_2",
+      "meaning": "Thick restart cycles retaining extreme eigenvector estimates and gradient seeds."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/lanczos_restarts/tribe_21_1",
+      "value": 32,
+      "scope": "tribe_21_1",
+      "meaning": "Thick restart cycles retaining extreme eigenvector estimates and gradient seeds."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/lanczos_restarts/tribe_2_8",
+      "value": 32,
+      "scope": "tribe_2_8",
+      "meaning": "Thick restart cycles retaining extreme eigenvector estimates and gradient seeds."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/lanczos_restarts/tribe_3_6",
+      "value": 32,
+      "scope": "tribe_3_6",
+      "meaning": "Thick restart cycles retaining extreme eigenvector estimates and gradient seeds."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/lanczos_restarts/tribe_3_7",
+      "value": 32,
+      "scope": "tribe_3_7",
+      "meaning": "Thick restart cycles retaining extreme eigenvector estimates and gradient seeds."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/lanczos_restarts/tribe_4_5",
+      "value": 32,
+      "scope": "tribe_4_5",
+      "meaning": "Thick restart cycles retaining extreme eigenvector estimates and gradient seeds."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/lanczos_restarts/tribe_5_4",
+      "value": 32,
+      "scope": "tribe_5_4",
+      "meaning": "Thick restart cycles retaining extreme eigenvector estimates and gradient seeds."
+    },
+    {
+      "group": "Computation",
+      "metric": "spaces/lanczos_restarts/tribe_7_3",
+      "value": 32,
+      "scope": "tribe_7_3",
+      "meaning": "Thick restart cycles retaining extreme eigenvector estimates and gradient seeds."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/max_harm/tribe_10_2",
+      "value": 0.028871668633655645,
+      "scope": "tribe_10_2",
+      "meaning": "Actual worst-sign loss increase of the first sharpness candidate; not a global maximum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/max_harm/tribe_21_1",
+      "value": 0.02838088038333808,
+      "scope": "tribe_21_1",
+      "meaning": "Actual worst-sign loss increase of the first sharpness candidate; not a global maximum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/max_harm/tribe_2_8",
+      "value": 0.027063237270340323,
+      "scope": "tribe_2_8",
+      "meaning": "Actual worst-sign loss increase of the first sharpness candidate; not a global maximum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/max_harm/tribe_3_6",
+      "value": 0.02783447247929871,
+      "scope": "tribe_3_6",
+      "meaning": "Actual worst-sign loss increase of the first sharpness candidate; not a global maximum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/max_harm/tribe_3_7",
+      "value": 0.02129883784800768,
+      "scope": "tribe_3_7",
+      "meaning": "Actual worst-sign loss increase of the first sharpness candidate; not a global maximum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/max_harm/tribe_4_5",
+      "value": 0.022931948595214635,
+      "scope": "tribe_4_5",
+      "meaning": "Actual worst-sign loss increase of the first sharpness candidate; not a global maximum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/max_harm/tribe_5_4",
+      "value": 0.02899017743766308,
+      "scope": "tribe_5_4",
+      "meaning": "Actual worst-sign loss increase of the first sharpness candidate; not a global maximum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/max_harm/tribe_7_3",
+      "value": 0.03262615785934031,
+      "scope": "tribe_7_3",
+      "meaning": "Actual worst-sign loss increase of the first sharpness candidate; not a global maximum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/min_harm/tribe_10_2",
+      "value": -7.363815529970452e-05,
+      "scope": "tribe_10_2",
+      "meaning": "Actual worst-sign loss increase of the first tangent candidate; not a global minimum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/min_harm/tribe_21_1",
+      "value": -4.768260623677634e-06,
+      "scope": "tribe_21_1",
+      "meaning": "Actual worst-sign loss increase of the first tangent candidate; not a global minimum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/min_harm/tribe_2_8",
+      "value": 0.009082668228074908,
+      "scope": "tribe_2_8",
+      "meaning": "Actual worst-sign loss increase of the first tangent candidate; not a global minimum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/min_harm/tribe_3_6",
+      "value": -0.00010219786781817675,
+      "scope": "tribe_3_6",
+      "meaning": "Actual worst-sign loss increase of the first tangent candidate; not a global minimum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/min_harm/tribe_3_7",
+      "value": 0.00041791744297370315,
+      "scope": "tribe_3_7",
+      "meaning": "Actual worst-sign loss increase of the first tangent candidate; not a global minimum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/min_harm/tribe_4_5",
+      "value": 0.009519391984213144,
+      "scope": "tribe_4_5",
+      "meaning": "Actual worst-sign loss increase of the first tangent candidate; not a global minimum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/min_harm/tribe_5_4",
+      "value": -0.001226672437041998,
+      "scope": "tribe_5_4",
+      "meaning": "Actual worst-sign loss increase of the first tangent candidate; not a global minimum."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/min_harm/tribe_7_3",
+      "value": -0.0008027547737583518,
+      "scope": "tribe_7_3",
+      "meaning": "Actual worst-sign loss increase of the first tangent candidate; not a global minimum."
+    },
+    {
+      "group": "Settings",
+      "metric": "spaces/parameter_count",
+      "value": 101761,
+      "scope": "All tasks",
+      "meaning": "Number of trainable parameter coordinates."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/ritz_max_relative_residual/tribe_10_2",
+      "value": 0.0004975900000437482,
+      "scope": "tribe_10_2",
+      "meaning": "Maximum relative eigen-equation error of checked Hessian Ritz modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/ritz_max_relative_residual/tribe_21_1",
+      "value": 0.0023754735098139713,
+      "scope": "tribe_21_1",
+      "meaning": "Maximum relative eigen-equation error of checked Hessian Ritz modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/ritz_max_relative_residual/tribe_2_8",
+      "value": 0.00023678536011892336,
+      "scope": "tribe_2_8",
+      "meaning": "Maximum relative eigen-equation error of checked Hessian Ritz modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/ritz_max_relative_residual/tribe_3_6",
+      "value": 0.11264485340055959,
+      "scope": "tribe_3_6",
+      "meaning": "Maximum relative eigen-equation error of checked Hessian Ritz modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/ritz_max_relative_residual/tribe_3_7",
+      "value": 0.00023135568888573368,
+      "scope": "tribe_3_7",
+      "meaning": "Maximum relative eigen-equation error of checked Hessian Ritz modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/ritz_max_relative_residual/tribe_4_5",
+      "value": 5.750566227389705e-05,
+      "scope": "tribe_4_5",
+      "meaning": "Maximum relative eigen-equation error of checked Hessian Ritz modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/ritz_max_relative_residual/tribe_5_4",
+      "value": 0.06160197016091339,
+      "scope": "tribe_5_4",
+      "meaning": "Maximum relative eigen-equation error of checked Hessian Ritz modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/ritz_max_relative_residual/tribe_7_3",
+      "value": 0.3878523071317205,
+      "scope": "tribe_7_3",
+      "meaning": "Maximum relative eigen-equation error of checked Hessian Ritz modes."
+    },
+    {
+      "group": "Settings",
+      "metric": "spaces/search_dim",
+      "value": 101761,
+      "scope": "All tasks",
+      "meaning": "Full parameter count; duplicates parameter_count."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_candidate_exhausted/tribe_10_2",
+      "value": 0,
+      "scope": "tribe_10_2",
+      "meaning": "1 means available sharpness Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_candidate_exhausted/tribe_21_1",
+      "value": 0,
+      "scope": "tribe_21_1",
+      "meaning": "1 means available sharpness Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_candidate_exhausted/tribe_2_8",
+      "value": 0,
+      "scope": "tribe_2_8",
+      "meaning": "1 means available sharpness Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_candidate_exhausted/tribe_3_6",
+      "value": 0,
+      "scope": "tribe_3_6",
+      "meaning": "1 means available sharpness Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_candidate_exhausted/tribe_3_7",
+      "value": 0,
+      "scope": "tribe_3_7",
+      "meaning": "1 means available sharpness Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_candidate_exhausted/tribe_4_5",
+      "value": 0,
+      "scope": "tribe_4_5",
+      "meaning": "1 means available sharpness Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_candidate_exhausted/tribe_5_4",
+      "value": 0,
+      "scope": "tribe_5_4",
+      "meaning": "1 means available sharpness Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_candidate_exhausted/tribe_7_3",
+      "value": 0,
+      "scope": "tribe_7_3",
+      "meaning": "1 means available sharpness Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_cap_reached/tribe_10_2",
+      "value": 0,
+      "scope": "tribe_10_2",
+      "meaning": "1 means the sharpness direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_cap_reached/tribe_21_1",
+      "value": 0,
+      "scope": "tribe_21_1",
+      "meaning": "1 means the sharpness direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_cap_reached/tribe_2_8",
+      "value": 0,
+      "scope": "tribe_2_8",
+      "meaning": "1 means the sharpness direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_cap_reached/tribe_3_6",
+      "value": 0,
+      "scope": "tribe_3_6",
+      "meaning": "1 means the sharpness direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_cap_reached/tribe_3_7",
+      "value": 0,
+      "scope": "tribe_3_7",
+      "meaning": "1 means the sharpness direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_cap_reached/tribe_4_5",
+      "value": 0,
+      "scope": "tribe_4_5",
+      "meaning": "1 means the sharpness direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_cap_reached/tribe_5_4",
+      "value": 0,
+      "scope": "tribe_5_4",
+      "meaning": "1 means the sharpness direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/sharpness_cap_reached/tribe_7_3",
+      "value": 0,
+      "scope": "tribe_7_3",
+      "meaning": "1 means the sharpness direction cap was reached."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/sharpness_dim/tribe_10_2",
+      "value": 2,
+      "scope": "tribe_10_2",
+      "meaning": "Independent accepted harmful basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/sharpness_dim/tribe_21_1",
+      "value": 1,
+      "scope": "tribe_21_1",
+      "meaning": "Independent accepted harmful basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/sharpness_dim/tribe_2_8",
+      "value": 4,
+      "scope": "tribe_2_8",
+      "meaning": "Independent accepted harmful basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/sharpness_dim/tribe_3_6",
+      "value": 4,
+      "scope": "tribe_3_6",
+      "meaning": "Independent accepted harmful basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/sharpness_dim/tribe_3_7",
+      "value": 3,
+      "scope": "tribe_3_7",
+      "meaning": "Independent accepted harmful basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/sharpness_dim/tribe_4_5",
+      "value": 5,
+      "scope": "tribe_4_5",
+      "meaning": "Independent accepted harmful basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/sharpness_dim/tribe_5_4",
+      "value": 3,
+      "scope": "tribe_5_4",
+      "meaning": "Independent accepted harmful basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/sharpness_dim/tribe_7_3",
+      "value": 2,
+      "scope": "tribe_7_3",
+      "meaning": "Independent accepted harmful basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/sharpness_max_residual/tribe_10_2",
+      "value": 4.301326490930831e-08,
+      "scope": "tribe_10_2",
+      "meaning": "Maximum absolute quadratic stationarity error of accepted sharpness modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/sharpness_max_residual/tribe_21_1",
+      "value": 4.838085008519439e-08,
+      "scope": "tribe_21_1",
+      "meaning": "Maximum absolute quadratic stationarity error of accepted sharpness modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/sharpness_max_residual/tribe_2_8",
+      "value": 5.724838264370161e-08,
+      "scope": "tribe_2_8",
+      "meaning": "Maximum absolute quadratic stationarity error of accepted sharpness modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/sharpness_max_residual/tribe_3_6",
+      "value": 1.2712907666804819e-06,
+      "scope": "tribe_3_6",
+      "meaning": "Maximum absolute quadratic stationarity error of accepted sharpness modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/sharpness_max_residual/tribe_3_7",
+      "value": 3.340303226350772e-08,
+      "scope": "tribe_3_7",
+      "meaning": "Maximum absolute quadratic stationarity error of accepted sharpness modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/sharpness_max_residual/tribe_4_5",
+      "value": 8.492517145592992e-08,
+      "scope": "tribe_4_5",
+      "meaning": "Maximum absolute quadratic stationarity error of accepted sharpness modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/sharpness_max_residual/tribe_5_4",
+      "value": 2.1774023991073392e-05,
+      "scope": "tribe_5_4",
+      "meaning": "Maximum absolute quadratic stationarity error of accepted sharpness modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/sharpness_max_residual/tribe_7_3",
+      "value": 4.2691148556526986e-07,
+      "scope": "tribe_7_3",
+      "meaning": "Maximum absolute quadratic stationarity error of accepted sharpness modes."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/sharpness_stop_harm/tribe_10_2",
+      "value": 0.00024591841793153435,
+      "scope": "tribe_10_2",
+      "meaning": "Actual worst-sign loss increase of the rejected sharpness candidate."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/sharpness_stop_harm/tribe_21_1",
+      "value": 0.00034349477573414333,
+      "scope": "tribe_21_1",
+      "meaning": "Actual worst-sign loss increase of the rejected sharpness candidate."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/sharpness_stop_harm/tribe_2_8",
+      "value": 0.0013466512318700552,
+      "scope": "tribe_2_8",
+      "meaning": "Actual worst-sign loss increase of the rejected sharpness candidate."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/sharpness_stop_harm/tribe_3_6",
+      "value": 0.0017491609323769808,
+      "scope": "tribe_3_6",
+      "meaning": "Actual worst-sign loss increase of the rejected sharpness candidate."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/sharpness_stop_harm/tribe_3_7",
+      "value": 0.0008778661722317338,
+      "scope": "tribe_3_7",
+      "meaning": "Actual worst-sign loss increase of the rejected sharpness candidate."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/sharpness_stop_harm/tribe_4_5",
+      "value": 0.0009258580976165831,
+      "scope": "tribe_4_5",
+      "meaning": "Actual worst-sign loss increase of the rejected sharpness candidate."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/sharpness_stop_harm/tribe_5_4",
+      "value": 0.000756097724661231,
+      "scope": "tribe_5_4",
+      "meaning": "Actual worst-sign loss increase of the rejected sharpness candidate."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/sharpness_stop_harm/tribe_7_3",
+      "value": 0.001541224541142583,
+      "scope": "tribe_7_3",
+      "meaning": "Actual worst-sign loss increase of the rejected sharpness candidate."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_candidate_exhausted/tribe_10_2",
+      "value": 0,
+      "scope": "tribe_10_2",
+      "meaning": "1 means available tangent Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_candidate_exhausted/tribe_21_1",
+      "value": 0,
+      "scope": "tribe_21_1",
+      "meaning": "1 means available tangent Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_candidate_exhausted/tribe_2_8",
+      "value": 0,
+      "scope": "tribe_2_8",
+      "meaning": "1 means available tangent Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_candidate_exhausted/tribe_3_6",
+      "value": 0,
+      "scope": "tribe_3_6",
+      "meaning": "1 means available tangent Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_candidate_exhausted/tribe_3_7",
+      "value": 0,
+      "scope": "tribe_3_7",
+      "meaning": "1 means available tangent Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_candidate_exhausted/tribe_4_5",
+      "value": 0,
+      "scope": "tribe_4_5",
+      "meaning": "1 means available tangent Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_candidate_exhausted/tribe_5_4",
+      "value": 0,
+      "scope": "tribe_5_4",
+      "meaning": "1 means available tangent Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_candidate_exhausted/tribe_7_3",
+      "value": 0,
+      "scope": "tribe_7_3",
+      "meaning": "1 means available tangent Krylov candidates ran out before the cap."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_cap_reached/tribe_10_2",
+      "value": 1,
+      "scope": "tribe_10_2",
+      "meaning": "1 means the tangent direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_cap_reached/tribe_21_1",
+      "value": 1,
+      "scope": "tribe_21_1",
+      "meaning": "1 means the tangent direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_cap_reached/tribe_2_8",
+      "value": 0,
+      "scope": "tribe_2_8",
+      "meaning": "1 means the tangent direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_cap_reached/tribe_3_6",
+      "value": 1,
+      "scope": "tribe_3_6",
+      "meaning": "1 means the tangent direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_cap_reached/tribe_3_7",
+      "value": 1,
+      "scope": "tribe_3_7",
+      "meaning": "1 means the tangent direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_cap_reached/tribe_4_5",
+      "value": 0,
+      "scope": "tribe_4_5",
+      "meaning": "1 means the tangent direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_cap_reached/tribe_5_4",
+      "value": 1,
+      "scope": "tribe_5_4",
+      "meaning": "1 means the tangent direction cap was reached."
+    },
+    {
+      "group": "Search flags",
+      "metric": "spaces/tangent_cap_reached/tribe_7_3",
+      "value": 1,
+      "scope": "tribe_7_3",
+      "meaning": "1 means the tangent direction cap was reached."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/tangent_dim/tribe_10_2",
+      "value": 100,
+      "scope": "tribe_10_2",
+      "meaning": "Independent accepted safe basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/tangent_dim/tribe_21_1",
+      "value": 100,
+      "scope": "tribe_21_1",
+      "meaning": "Independent accepted safe basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/tangent_dim/tribe_2_8",
+      "value": 0,
+      "scope": "tribe_2_8",
+      "meaning": "Independent accepted safe basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/tangent_dim/tribe_3_6",
+      "value": 100,
+      "scope": "tribe_3_6",
+      "meaning": "Independent accepted safe basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/tangent_dim/tribe_3_7",
+      "value": 100,
+      "scope": "tribe_3_7",
+      "meaning": "Independent accepted safe basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/tangent_dim/tribe_4_5",
+      "value": 0,
+      "scope": "tribe_4_5",
+      "meaning": "Independent accepted safe basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/tangent_dim/tribe_5_4",
+      "value": 100,
+      "scope": "tribe_5_4",
+      "meaning": "Independent accepted safe basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Task directions",
+      "metric": "spaces/tangent_dim/tribe_7_3",
+      "value": 100,
+      "scope": "tribe_7_3",
+      "meaning": "Independent accepted safe basis directions; not a certified full dimension."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/tangent_max_residual/tribe_10_2",
+      "value": 1.1033554860530354e-05,
+      "scope": "tribe_10_2",
+      "meaning": "Maximum absolute projected eigen-equation error of accepted tangent modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/tangent_max_residual/tribe_21_1",
+      "value": 2.5351520319802237e-05,
+      "scope": "tribe_21_1",
+      "meaning": "Maximum absolute projected eigen-equation error of accepted tangent modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/tangent_max_residual/tribe_3_6",
+      "value": 0.01701603684604049,
+      "scope": "tribe_3_6",
+      "meaning": "Maximum absolute projected eigen-equation error of accepted tangent modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/tangent_max_residual/tribe_3_7",
+      "value": 3.190657161245838e-05,
+      "scope": "tribe_3_7",
+      "meaning": "Maximum absolute projected eigen-equation error of accepted tangent modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/tangent_max_residual/tribe_5_4",
+      "value": 0.03346861168254132,
+      "scope": "tribe_5_4",
+      "meaning": "Maximum absolute projected eigen-equation error of accepted tangent modes."
+    },
+    {
+      "group": "Numerical quality",
+      "metric": "spaces/tangent_max_residual/tribe_7_3",
+      "value": 0.0641784765859835,
+      "scope": "tribe_7_3",
+      "meaning": "Maximum absolute projected eigen-equation error of accepted tangent modes."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/tangent_stop_harm/tribe_2_8",
+      "value": 0.009082668228074908,
+      "scope": "tribe_2_8",
+      "meaning": "Actual worst-sign loss increase of the rejected tangent candidate."
+    },
+    {
+      "group": "Loss changes",
+      "metric": "spaces/tangent_stop_harm/tribe_4_5",
+      "value": 0.009519391984213144,
+      "scope": "tribe_4_5",
+      "meaning": "Actual worst-sign loss increase of the rejected tangent candidate."
+    }
+  ],
+  "notes": [],
+  "overlaps": {
+    "sharpness": [
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_10_2",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9894421926323622,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_7_3",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9898510184995145,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_5_4",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9767273118404026,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_4_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9684053417191418,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_3_6",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.932368262727443,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_3_7",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9157524622570957,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.7733113269969382,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_10_2",
+        "task_b": "tribe_7_3",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9722757949902604,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_10_2",
+        "task_b": "tribe_5_4",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9843935623371529,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_10_2",
+        "task_b": "tribe_4_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9659665847925596,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_10_2",
+        "task_b": "tribe_3_6",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.956507311383157,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_10_2",
+        "task_b": "tribe_3_7",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9236069884709835,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_10_2",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.7885043009761825,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_7_3",
+        "task_b": "tribe_5_4",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9787353161467113,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_7_3",
+        "task_b": "tribe_4_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9489669336419226,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_7_3",
+        "task_b": "tribe_3_6",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9093768753929851,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_7_3",
+        "task_b": "tribe_3_7",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9037071852206064,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_7_3",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.7871545439114092,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_5_4",
+        "task_b": "tribe_4_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9622792450721931,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_5_4",
+        "task_b": "tribe_3_6",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9588344706678894,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_5_4",
+        "task_b": "tribe_3_7",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9393686706669472,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_5_4",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.8504236020220282,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_4_5",
+        "task_b": "tribe_3_6",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9785976530092158,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_4_5",
+        "task_b": "tribe_3_7",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9766210993656999,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_4_5",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9324355313482292,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_6",
+        "task_b": "tribe_3_7",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.987915407789645,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_6",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.982787961898496,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_7",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9797114589422589,
+        "source": "Direction artifact"
+      }
+    ],
+    "tangent": [
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_10_2",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.9481280456385012,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_7_3",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.6670518137405421,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_5_4",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.7173296075599463,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_4_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_3_6",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.5411043080930192,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_3_7",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.8790229570279086,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_21_1",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_10_2",
+        "task_b": "tribe_7_3",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.8435161975328905,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_10_2",
+        "task_b": "tribe_5_4",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.7434030900580401,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_10_2",
+        "task_b": "tribe_4_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_10_2",
+        "task_b": "tribe_3_6",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.6941701872648863,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_10_2",
+        "task_b": "tribe_3_7",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.7734719186325952,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_10_2",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_7_3",
+        "task_b": "tribe_5_4",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.7470749967990861,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_7_3",
+        "task_b": "tribe_4_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_7_3",
+        "task_b": "tribe_3_6",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.6962519169734396,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_7_3",
+        "task_b": "tribe_3_7",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.6634018793018196,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_7_3",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_5_4",
+        "task_b": "tribe_4_5",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_5_4",
+        "task_b": "tribe_3_6",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.5385524983285717,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_5_4",
+        "task_b": "tribe_3_7",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.5494340622695223,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_5_4",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_4_5",
+        "task_b": "tribe_3_6",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_4_5",
+        "task_b": "tribe_3_7",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_4_5",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_6",
+        "task_b": "tribe_3_7",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": 0.4742927857981041,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_6",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      },
+      {
+        "task_a": "tribe_3_7",
+        "task_b": "tribe_2_8",
+        "directions": 0,
+        "loss_verified_directions": null,
+        "max_principal_cosine": null,
+        "source": "Direction artifact"
+      }
+    ]
+  },
+  "overlap_directions": [],
+  "directions_source": "/Users/gaspard/Documents/Sharpness_experiments/results/space_artifacts/y9er89ad/spaces_step_10000.pt"
+}

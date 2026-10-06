@@ -218,9 +218,15 @@ Training-batch loss and accuracy use the pre-update predictions.
 
 ## Task-loss tangent and sharpness directions
 
-The experiment measures these directions **once, after the final optimizer
-update**. Set `space_delta` to a positive global parameter-vector norm to
-enable the measure; `train()` disables it by default and `test.py` uses `0.02`.
+These expensive diagnostics are **disabled by default**, including in cluster
+runs and smoke tests. To enable them, run `python test.py --loss-spaces`;
+`--no-loss-spaces` explicitly disables them. The setting is recorded in W&B as
+`train_space_enabled`. It controls the final tangent, sharpness, and pairwise
+overlap computations and their direction artifact.
+
+When enabled, the experiment measures these directions **once, after the final
+optimizer update**. In `train()`, set `space_enabled=True` and `space_delta` to a
+positive global parameter-vector norm (`0.02` in `test.py`).
 `space_epsilon` is the allowed increase in a task's mean loss (`0.002`, reduced
 from `0.01` by a factor of five to let more directions qualify as sharp).
 The mean loss uses the configured criterion on `space_num_inputs` fixed uniform
@@ -240,8 +246,9 @@ The implementation uses **matrix-free thick-restart block Lanczos**.
 per task**, shared by the tangent and sharpness calculations. For the eight
 tasks in `test.py`, this allows 80,000 HVPs in total for this final measure.
 If the complete parameter basis fits in the active window, the search stops
-once it has been covered. The normal experiment uses 10,000; `--smoke-test`
-uses 4. Other periodic curvature diagnostics have their own existing HVP cost.
+once it has been covered. An enabled normal experiment uses 10,000;
+`--smoke-test --loss-spaces` uses 4. Other periodic curvature diagnostics have
+their own existing HVP cost.
 
 Each HVP differentiates the task's mean loss at the final model parameters.
 The gradient graph is reused within a task. Lanczos starts with task gradients
@@ -333,6 +340,23 @@ epsilon and leave the target within epsilon in both signs.
 in the discovered spans. A zero count does not rule out interference involving
 directions not discovered. Both task orders are reported.
 
+For each unordered pair `A_and_B`, same-kind overlaps also compare **sharpness
+with sharpness** and **tangent with tangent**. Orthonormalized bases and an SVD
+give the principal-angle cosines; values at least `space_intersection_cosine`
+count as approximate shared directions. Each exported unit direction is the
+normalized midpoint of the two aligned principal vectors, equally close to
+both spans. At cosine 1 this is an exact common direction. These calculations
+use no additional HVPs and run once, at the end of training.
+
+W&B logs `spaces/<kind>_overlap_dim/<A>_and_<B>` for this geometric dimension,
+`spaces/<kind>_overlap_max_cosine/<A>_and_<B>` for the closest alignment when
+both spans are nonempty, and `spaces/<kind>_overlap_verified_dim/<A>_and_<B>`
+for the shared directions passing actual finite-radius loss checks on both
+tasks. Tangent checks require both signs to stay within epsilon for both tasks;
+sharpness checks require worst-sign harm above epsilon for each task. The
+harmful sign can differ between tasks. Since rotating a basis can change
+nonlinear loss behavior, geometric and loss-verified counts are kept separate.
+
 The final W&B `loss-spaces` artifact, aliased by its training step, contains
 parameter names and shapes, full task and interference direction vectors,
 baselines, loss changes for both signs, task gradients, probe payloads, cap
@@ -340,7 +364,7 @@ flags, HVP counts, Ritz eigenvalues and residual diagnostics. Each direction
 matrix has one row per trainable
 parameter coordinate and one column per found unit direction. Multiply a
 column by delta, then split and reshape in `parameter_names` / `parameter_shapes`
-order to obtain the parameter perturbation. Artifact format version 4 records
+order to obtain the parameter perturbation. Artifact formats 4 and 5 record
 full vectors directly; no reduced search basis is required. The stored
 loss-change columns correspond to `+delta` and `-delta` in that order.
 `<kind>_curvatures` stores `v.T @ H_i @ v`; `<kind>_predicted_harms` stores the
@@ -348,6 +372,13 @@ second-order approximation. Tangent residuals use the gradient-projected
 Hessian; sharpness residuals use the quadratic objective projected off earlier
 sharpness directions. Individual directions are checked, but nonlinear loss can behave
 differently along combinations of them.
+Format 5 also stores `overlaps["sharpness"]` and `overlaps["tangent"]`, with one
+entry per unordered pair. Entries contain the task names, shared direction
+matrix, retained cosines, all principal cosines, `loss_changes_a` /
+`loss_changes_b` (columns +delta then -delta), and a per-direction
+`loss_verified` boolean mask. `directions` contains the geometric basis;
+select its columns using that mask to get the directions passing joint loss
+checks. Training artifacts include their W&B run ID.
 
 ### Readable reports from a saved run
 
@@ -364,11 +395,35 @@ Directories are searched recursively, with one report per run. The script
 reads the saved `config.yaml` using the project's existing environment and
 preserves the original measurements. No training or W&B connection is needed.
 
+Reports also include symmetric sharpness–sharpness and tangent–tangent matrices,
+pair details, and maximum alignment cosines. Older runs need their full
+`loss-spaces` artifact to calculate these overlaps. Put its `spaces_step_*.pt`
+file in `results/space_artifacts/<run-id>/` and rerun the same command, or select
+it explicitly for one run:
+
+```bash
+env/bin/python scripts/summarize_spaces.py path/to/wandb-summary.json \
+  --directions-artifact path/to/spaces_step_10000.pt
+```
+
+The artifacts downloaded for the existing `y9er89ad` and `wgrcwba5` reports are
+cached under `results/space_artifacts/` (excluded from Git). Backfilling uses only
+saved parameter directions; it does not rerun Hessian computations. New joint
+loss checks cannot be reconstructed without the trained model and remain
+missing for older artifacts.
+
 Open `results/spaces_report/index.html`, or a run's `report.html` / `report.md`.
 Each run also gets `task_summary.csv`, `interference_matrix.csv`,
 `interference_pairs.csv`, `numerical_quality.csv`, and `metrics.csv`.
 The last CSV preserves every original `spaces/` value with a group and an
 explanation. `report.json` retains the grouped data with full numeric precision.
+Same-kind overlaps also get `<kind>_overlap_pairs.csv` and
+`<kind>_overlap_matrix.csv`. When an artifact is supplied, `overlap_directions.pt`
+exports the actual vectors and parameter layout; `overlap_directions.csv`
+maps direction IDs to `overlaps[vector_kind][vector_pair]["directions"][:, vector_column]`.
+Columns are zero-based. An empty direction table means no principal cosine
+passed the threshold. Original `metrics.csv` values are preserved exactly;
+backfilled counts live in the separate overlap tables.
 
 The interference matrix uses **safe tasks as rows and harmed tasks as columns**:
 row A / column B reads the original `B_to_A` metric. Capped counts are marked
@@ -497,7 +552,14 @@ WANDB_PROJECT='multiple tasks sharpness' bash submit-wandb.sh \
 
 The wrapper creates log/result directories and loads credentials. The smoke
 test performs two optimizer updates, evaluation, gradient, curvature, and
-sharpness diagnostics, plus a small final loss-space search and W&B artifact.
+sharpness diagnostics. Add `--loss-spaces` to also check a small final loss-space
+search and W&B artifact:
+
+```bash
+WANDB_PROJECT='multiple tasks sharpness' bash submit-wandb.sh \
+  'experiment_args=--smoke-test --loss-spaces'
+```
+
 It retains the full model and eight tasks but reduces sample counts and search
 settings. Its W&B config records `smoke_test=true`; its measurements are only
 for validating the pipeline.
@@ -512,7 +574,7 @@ cat /scratch/gtomas/logs/sharpness_experiments/test.JOB_ID.log
 ```
 
 Verify the CUDA device and GPU name in stdout, the W&B run URL, exit code 0,
-and the metrics and `loss-spaces` artifact in W&B. W&B emits normal status
+and the metrics in W&B (also the `loss-spaces` artifact if enabled). W&B emits normal status
 messages to stderr, so a nonempty `.err` file is not itself a failure. If held,
 inspect `condor_q JOB_ID -hold`. If idle for a long time, use
 `condor_q JOB_ID -better-analyze` to inspect resource matching.
@@ -525,8 +587,9 @@ WANDB_PROJECT='multiple tasks sharpness' bash submit-wandb.sh
 
 `test.sub` starts one job with one GPU, two CPUs, 8 GB of host RAM, and 4 GB of
 job disk. Host RAM does not reserve GPU memory. These are starting allocations;
-adjust after observing the smoke/full run. The final direction searches can
-take substantial time after training. Check cluster runtime limits before the
+adjust after observing the smoke/full run. To enable the final direction searches
+in a full run, pass `'experiment_args=--loss-spaces'` to the submission wrapper.
+These searches can take substantial time after training. Check cluster runtime limits before the
 full run. The default experiment has no model checkpoints or resume mechanism;
 an evicted job starts training again.
 

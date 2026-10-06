@@ -73,14 +73,14 @@ Interference,spaces/interference_dim/tribe_3_4_to_mean_majority_parity_5,0,tribe
 Interference,spaces/interference_dim/tribe_3_4_to_mean_middle_majority_parity_10,0,tribe_3_4_to_mean_middle_majority_parity_10,Verified overlap: harmful to the source task and safe for the target task.
 Interference,spaces/interference_dim/tribe_3_4_to_mean_tribe_2_5_majority_tail,0,tribe_3_4_to_mean_tribe_2_5_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
 Interference,spaces/interference_dim/tribe_3_4_to_mean_tribe_majority_tail,0,tribe_3_4_to_mean_tribe_majority_tail,Verified overlap: harmful to the source task and safe for the target task.
-Computation,spaces/krylov_dim/Majority_0_10,500,Majority_0_10,Dimension of the adaptive Hessian approximation space.
-Computation,spaces/krylov_dim/isordered_0_10,500,isordered_0_10,Dimension of the adaptive Hessian approximation space.
-Computation,spaces/krylov_dim/isrepeating_0_10,500,isrepeating_0_10,Dimension of the adaptive Hessian approximation space.
-Computation,spaces/krylov_dim/mean_majority_parity_5,500,mean_majority_parity_5,Dimension of the adaptive Hessian approximation space.
-Computation,spaces/krylov_dim/mean_middle_majority_parity_10,500,mean_middle_majority_parity_10,Dimension of the adaptive Hessian approximation space.
-Computation,spaces/krylov_dim/mean_tribe_2_5_majority_tail,500,mean_tribe_2_5_majority_tail,Dimension of the adaptive Hessian approximation space.
-Computation,spaces/krylov_dim/mean_tribe_majority_tail,500,mean_tribe_majority_tail,Dimension of the adaptive Hessian approximation space.
-Computation,spaces/krylov_dim/tribe_3_4,500,tribe_3_4,Dimension of the adaptive Hessian approximation space.
+Computation,spaces/krylov_dim/Majority_0_10,500,Majority_0_10,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/isordered_0_10,500,isordered_0_10,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/isrepeating_0_10,500,isrepeating_0_10,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/mean_majority_parity_5,500,mean_majority_parity_5,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/mean_middle_majority_parity_10,500,mean_middle_majority_parity_10,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/mean_tribe_2_5_majority_tail,500,mean_tribe_2_5_majority_tail,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/mean_tribe_majority_tail,500,mean_tribe_majority_tail,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
+Computation,spaces/krylov_dim/tribe_3_4,500,tribe_3_4,Final active Hessian approximation dimension; can be smaller than HVP count after restarts.
 Loss changes,spaces/max_harm/Majority_0_10,0.05238872900372371,Majority_0_10,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
 Loss changes,spaces/max_harm/isordered_0_10,0.08533891953993589,isordered_0_10,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.
 Loss changes,spaces/max_harm/isrepeating_0_10,0.08075423946138471,isrepeating_0_10,Actual worst-sign loss increase of the first sharpness candidate; not a global maximum.

@@ -5,10 +5,24 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import torch
+
 from scripts.summarize_spaces import load_report, main, observations, tables, write_report
 
 
 class SpacesReportTest(unittest.TestCase):
+    def make_artifact(self, directory):
+        eye = torch.eye(1000)
+        artifact = {
+            "format_version": 4, "parameter_names": ["weights"], "parameter_shapes": [(1000,)],
+            "delta": .02, "epsilon": .01, "intersection_cosine": .999,
+            "tasks": {"A": {"tangent": eye[:, :16], "sharpness": eye[:, 30:32]},
+                      "B_to_C": {"tangent": eye[:, :1], "sharpness": eye[:, 31:34]}},
+        }
+        path = directory / "spaces_step_10000.pt"
+        torch.save(artifact, path)
+        return path
+
     def make_run(self, directory, run_id="abc123"):
         files = directory / f"run-20261005_100000-{run_id}" / "files"
         files.mkdir(parents=True)
@@ -166,6 +180,89 @@ class SpacesReportTest(unittest.TestCase):
         quality_table = tables(report)[3]
         self.assertIn("Thick restarts", quality_table[2])
         self.assertEqual(quality_table[3][0][1:3], [10000, 272])
+
+    def test_same_kind_logged_pairs_are_symmetric_and_not_discovered_as_tasks(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            summary = self.make_run(Path(temporary))
+            metrics = json.loads(summary.read_text())
+            metrics.update({"spaces/sharpness_overlap_dim/A_and_B_to_C": 1,
+                            "spaces/sharpness_overlap_verified_dim/A_and_B_to_C": 0,
+                            "spaces/sharpness_overlap_max_cosine/A_and_B_to_C": .9999,
+                            "spaces/tangent_overlap_dim/A_and_B_to_C": 0})
+            summary.write_text(json.dumps(metrics))
+            report = load_report(summary)
+            write_report(report, Path(temporary) / "output")
+            with (Path(temporary) / "output" / "sharpness_overlap_matrix.csv").open() as stream:
+                matrix = list(csv.DictReader(stream))
+        self.assertEqual([row["task"] for row in report["tasks"]], ["A", "B_to_C"])
+        self.assertEqual(matrix[0]["B_to_C"], "1")
+        self.assertEqual(matrix[1]["A"], "1")
+        self.assertEqual(report["overlaps"]["sharpness"][0]["loss_verified_directions"], 0)
+        self.assertIsNone(report["overlaps"]["tangent"][0]["loss_verified_directions"])
+        self.assertFalse(any(row["group"] == "Other" for row in report["catalog"]))
+
+    def test_saved_artifact_backfills_geometric_overlaps_and_exports_full_vectors(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            summary = self.make_run(root)
+            before = summary.read_bytes()
+            report = load_report(summary, directions_artifact=self.make_artifact(root))
+            output = root / "output"
+            write_report(report, output)
+            exported = torch.load(output / "overlap_directions.pt", weights_only=True)
+            with (output / "overlap_directions.csv").open() as stream:
+                directions = list(csv.DictReader(stream))
+            for row in directions:
+                value = exported["overlaps"][row["vector_kind"]][row["vector_pair"]]
+                vector = value["directions"][:, int(row["vector_column"])]
+                expected = torch.zeros(1000)
+                expected[31 if row["kind"] == "sharpness" else 0] = 1
+                torch.testing.assert_close(vector, expected)
+                self.assertEqual(row["loss_verified"], "")
+            self.assertEqual(len(directions), 2)
+            self.assertEqual(summary.read_bytes(), before)
+            self.assertNotIn("_overlap_vectors", json.loads((output / "report.json").read_text()))
+            with (output / "metrics.csv").open() as stream:
+                self.assertEqual(len(list(csv.DictReader(stream))), len(report["catalog"]))
+        for kind in ("sharpness", "tangent"):
+            self.assertEqual(report["overlaps"][kind][0]["directions"], 1)
+            self.assertIsNone(report["overlaps"][kind][0]["loss_verified_directions"])
+
+    def test_artifact_checks_run_and_measurement_settings(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            summary = self.make_run(root)
+            path = self.make_artifact(root)
+            artifact = torch.load(path, weights_only=True)
+            artifact["epsilon"] = .002
+            torch.save(artifact, path)
+            with self.assertRaisesRegex(ValueError, "epsilon does not match"):
+                load_report(summary, directions_artifact=path)
+            artifact["epsilon"] = .01
+            artifact["run_id"] = "another-run"
+            torch.save(artifact, path)
+            with self.assertRaisesRegex(ValueError, "run ID does not match"):
+                load_report(summary, directions_artifact=path)
+
+    def test_cli_finds_cached_artifact_by_run_id(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            summary = self.make_run(root)
+            cache = root / "artifacts" / "abc123"
+            cache.mkdir(parents=True)
+            self.make_artifact(cache)
+            output = root / "output"
+            self.assertEqual(main([str(summary), "--output-dir", str(output),
+                                   "--artifact-dir", str(cache.parent)]), 0)
+            report = json.loads((output / "abc123" / "report.json").read_text())
+            self.assertEqual(report["overlaps"]["tangent"][0]["directions"], 1)
+
+    def test_summary_without_artifact_keeps_missing_overlap_unknown(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            report = load_report(self.make_run(Path(temporary)))
+        for kind in ("sharpness", "tangent"):
+            self.assertIsNone(report["overlaps"][kind][0]["directions"])
+        self.assertEqual(report["overlap_directions"], [])
 
 
 if __name__ == "__main__":

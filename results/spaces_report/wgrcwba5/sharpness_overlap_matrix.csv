@@ -1,4 +1,4 @@
-safe_task,isordered_0_10,isrepeating_0_10,Majority_0_10,tribe_3_4,mean_majority_parity_5,mean_tribe_majority_tail,mean_middle_majority_parity_10,mean_tribe_2_5_majority_tail
+task,isordered_0_10,isrepeating_0_10,Majority_0_10,tribe_3_4,mean_majority_parity_5,mean_tribe_majority_tail,mean_middle_majority_parity_10,mean_tribe_2_5_majority_tail
 isordered_0_10,—,0,0,0,0,0,0,0
 isrepeating_0_10,0,—,0,0,0,0,0,0
 Majority_0_10,0,0,—,0,0,0,0,0
