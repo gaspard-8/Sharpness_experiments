@@ -93,14 +93,14 @@ def main() -> None:
     # Split the 21-bit payload (24 minus 3 selector bits) into 1 through 8 tribes.
     # Each tribe has width floor(21 / s); leftover trailing bits are ignored.
     tasks = [
-        Tribe_ws(w=21, s=1),
-        Tribe_ws(w=10, s=2),
-        Tribe_ws(w=7, s=3),
-        Tribe_ws(w=5, s=4),
-        Tribe_ws(w=4, s=5),
+        Tribe_ws(w=16, s=1),
+        Tribe_ws(w=8, s=2),
+        Tribe_ws(w=5, s=3),
+        Tribe_ws(w=4, s=4),
         Tribe_ws(w=3, s=6),
-        Tribe_ws(w=3, s=7),
         Tribe_ws(w=2, s=8),
+        Tribe_ws(w=4, s=3),
+        Tribe_ws(w=3, s=3),
     ]
     mix = SelectorFunction(tasks)
 
