@@ -583,8 +583,8 @@ project location.
 ```bash
 export CLUSTER_LOGIN=gtomas@YOUR_SUBMISSION_HOST
 ssh "$CLUSTER_LOGIN" 'mkdir -p /nethome/gtomas/projects/sharpness_experiments'
-rsync -av dockerfile .dockerignore requirements.txt test.py src tests \
-  run-test.sh test.sub submit-wandb.sh README.md \
+rsync -av dockerfile .dockerignore requirements.txt test.py test_arithmetic.py src tests \
+  run-test.sh test.sub submit-wandb.sh submit.sh README.md \
   "$CLUSTER_LOGIN:/nethome/gtomas/projects/sharpness_experiments/"
 ssh "$CLUSTER_LOGIN"
 cd /nethome/gtomas/projects/sharpness_experiments
@@ -627,7 +627,55 @@ environment variables in job metadata, so full job dumps can contain the key;
 keep them private. The runner sets W&B cache, configuration, staging, and log
 paths before import so it can run with an unwritable container home directory.
 
-### Submit a short GPU check, then the full experiment
+### Submit an arithmetic setup check
+
+On the submission host, with the W&B credentials configured above:
+
+```bash
+bash submit.sh
+```
+
+This runs `test_arithmetic.py --smoke-test --grouped-selectors --no-loss-spaces`
+with all seven arithmetic tasks. It performs two optimizer updates with a small
+model, held-out evaluation, gradient, affinity, curvature, and scalar sharpness
+diagnostics. Tangent and sharpness loss-space searches are disabled. It uses
+the existing container and GPU allocation from `test.sub`; no image rebuild is
+needed. W&B defaults to the project
+`arithmetic tasks sharpness`; set `WANDB_PROJECT` to override it.
+
+The mix includes addition, subtraction, multiplication, integer division,
+remainder, `addition_mod_10`, and `majority`. The last two take a single digit
+argument: `addition_mod_10` returns the sum of its digits modulo 10 (`987` gives
+`4`), and `majority` returns the most frequent digit (`0012` gives `0`). Leading
+zeros count, and majority ties select the smallest digit. Grouped selectors use
+`20` and `21` for these two tasks in the default mix. Both return one digit plus EOS.
+
+The default operand width is two digits for every task; unary tasks use the first
+two payload digits. `--digits-per-argument N` changes that width. Alternatively,
+`--payload-len N` splits the entire payload by each task's arity, so each unary
+task uses all N digits. Use `--operations` to choose a subset of the mix.
+
+Logs are saved under `/scratch/gtomas/logs/sharpness_experiments/` as
+`arithmetic.JOB_ID.0.out`, `arithmetic.JOB_ID.0.err`, and `arithmetic.JOB_ID.log`.
+The job archive is `/scratch/gtomas/sharpness_experiments/results/JOB_ID.0.tar.gz`.
+It includes `results/exit-code.txt`, executed sources, and the arithmetic run's
+configuration, metrics, and checkpoint under `results/arithmetic/`.
+
+The script accepts the same Condor overrides as `submit-wandb.sh`. For example,
+to run the full arithmetic experiment instead of the smoke test:
+
+```bash
+bash submit.sh 'experiment_args=--grouped-selectors --digits-per-argument 2 --no-loss-spaces'
+```
+
+For a local check without submitting or using W&B:
+
+```bash
+env/bin/python test_arithmetic.py --smoke-test --no-wandb --device cpu \
+  --grouped-selectors --no-loss-spaces
+```
+
+### Submit a short Boolean GPU check, then the full experiment
 
 On the submission host:
 

@@ -44,7 +44,8 @@ export TMPDIR="$runtime_dir/tmp"
 mkdir -p "$WANDB_CACHE_DIR" "$WANDB_CONFIG_DIR" "$WANDB_DATA_DIR" \
     "$WANDB_ARTIFACT_DIR" "$XDG_CACHE_HOME" "$TMPDIR"
 
-cp test.py results/code/
+experiment_script="${SHARPNESS_ENTRYPOINT:-test.py}"
+cp "$experiment_script" results/code/
 cp -R src results/code/
 printf 'Host: %s\nStarted (UTC): %s\n' "$(hostname)" "$(date -u +%FT%TZ)" > results/job-context.txt
-python -u test.py "$@"
+python -u "$experiment_script" "$@"
