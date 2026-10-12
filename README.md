@@ -661,11 +661,13 @@ The job archive is `/scratch/gtomas/sharpness_experiments/results/JOB_ID.0.tar.g
 It includes `results/exit-code.txt`, executed sources, and the arithmetic run's
 configuration, metrics, and checkpoint under `results/arithmetic/`.
 
-The script accepts the same Condor overrides as `submit-wandb.sh`. For example,
+The script accepts the same Condor overrides as `submit-wandb.sh`. Use `-append`
+for overrides: bare `name=value` arguments are read before `test.sub`, whose
+defaults can overwrite them. For example,
 to run the full arithmetic experiment instead of the smoke test:
 
 ```bash
-bash submit.sh 'experiment_args=--grouped-selectors --digits-per-argument 2 --no-loss-spaces'
+bash submit.sh -append 'experiment_args=--grouped-selectors --digits-per-argument 2 --no-loss-spaces'
 ```
 
 For a local check without submitting or using W&B:
@@ -681,7 +683,7 @@ On the submission host:
 
 ```bash
 WANDB_PROJECT='multiple tasks sharpness' bash submit-wandb.sh \
-  'experiment_args=--smoke-test'
+  -append 'experiment_args=--smoke-test'
 ```
 
 The wrapper creates log/result directories and loads credentials. The smoke
@@ -691,7 +693,7 @@ search and W&B artifact:
 
 ```bash
 WANDB_PROJECT='multiple tasks sharpness' bash submit-wandb.sh \
-  'experiment_args=--smoke-test --loss-spaces'
+  -append 'experiment_args=--smoke-test --loss-spaces'
 ```
 
 It retains the full model and eight tasks but reduces sample counts and search
@@ -722,7 +724,7 @@ WANDB_PROJECT='multiple tasks sharpness' bash submit-wandb.sh
 `test.sub` starts one job with one GPU, two CPUs, 8 GB of host RAM, and 4 GB of
 job disk. Host RAM does not reserve GPU memory. These are starting allocations;
 adjust after observing the smoke/full run. To enable the final direction searches
-in a full run, pass `'experiment_args=--loss-spaces'` to the submission wrapper.
+in a full run, pass `-append 'experiment_args=--loss-spaces'` to the submission wrapper.
 These searches can take substantial time after training. Check cluster runtime limits before the
 full run. The default experiment has no model checkpoints or resume mechanism;
 an evicted job starts training again.
@@ -816,8 +818,8 @@ docker push "$image"
 
 # On the submission host:
 WANDB_PROJECT='multiple tasks sharpness' bash submit-wandb.sh \
-  'image=docker.coli.uni-saarland.de/gtomas/sharpness-experiments:v2' \
-  'experiment_args=--smoke-test'
+  -append 'image=docker.coli.uni-saarland.de/gtomas/sharpness-experiments:v2' \
+  -append 'experiment_args=--smoke-test'
 ```
 
 If changing the PyTorch version, update both its explicit CUDA installation in
