@@ -50,6 +50,7 @@ class ArithmeticSubmissionTest(unittest.TestCase):
         self.assertTrue(parsed.wandb)
         self.assertFalse(parsed.smoke_test)
         self.assertEqual(parsed.steps, 30_000)
+        self.assertEqual(parsed.payload_len, 4)
         self.assertTrue(parsed.grouped_selectors)
         self.assertFalse(parsed.loss_spaces)
         self.assertEqual(len(parsed.operations), 7)

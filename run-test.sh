@@ -47,6 +47,9 @@ mkdir -p "$WANDB_CACHE_DIR" "$WANDB_CONFIG_DIR" "$WANDB_DATA_DIR" \
 experiment_script="${SHARPNESS_ENTRYPOINT:-test.py}"
 printf 'Experiment script: %s\nW&B project: %s\n' "$experiment_script" "$WANDB_PROJECT"
 cp "$experiment_script" results/code/
+if [ -f test_arithmetic.py ] && [ "$experiment_script" != test_arithmetic.py ]; then
+    cp test_arithmetic.py results/code/
+fi
 cp -R src results/code/
 printf 'Host: %s\nStarted (UTC): %s\n' "$(hostname)" "$(date -u +%FT%TZ)" > results/job-context.txt
 python -u "$experiment_script" "$@"

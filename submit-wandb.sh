@@ -23,4 +23,4 @@ export WANDB_ENTITY="${requested_entity:-${WANDB_ENTITY:-gaspardtomas-universit-
 mkdir -p /scratch/gtomas/logs/sharpness_experiments \
     /scratch/gtomas/sharpness_experiments/results
 chmod +x "$script_dir/run-test.sh"
-exec condor_submit "$script_dir/test.sub" "$@"
+exec condor_submit "${SHARPNESS_SUBMIT_FILE:-$script_dir/test.sub}" "$@"

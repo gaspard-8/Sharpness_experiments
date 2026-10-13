@@ -17,8 +17,8 @@ means arguments 12 and 3 at width 2. With grouped selectors, prefixes 00/01
 select addition/subtraction, 10/11/12 select multiplication/division/remainder,
 and 20/21 select addition_mod_10/majority.
 The operand width is configurable; --payload-len instead splits n digits into
-k equal arguments (unary tasks use all n). With --digits-per-argument, unary
-tasks read that many leading payload digits and ignore the rest. --arity affects
+k equal arguments. Unary digit tasks always use the entire payload, including
+all four digits in the default mix. --arity affects
 only addition/multiplication; other tasks retain their unary/binary arity.
 
 Output limit includes EOS (and a possible minus sign). The runner refuses a
@@ -72,7 +72,7 @@ def build_parser():
     parser.add_argument("--loss-spaces", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--grouped-selectors", action=argparse.BooleanOptionalAction, default=False)
     layout = parser.add_mutually_exclusive_group()
-    layout.add_argument("--digits-per-argument", type=int, help="Digits per argument (default: 2).")
+    layout.add_argument("--digits-per-argument", type=int, help="Digits per arithmetic operand (default: 2); digit tasks use the full payload.")
     layout.add_argument("--payload-len", type=int, help="Alternatively, divide n payload digits equally by each task's arity.")
     parser.add_argument("--arity", type=int, default=2, help="Arity for addition and multiplication only.")
     parser.add_argument("--operations", nargs="+", choices=OPERATIONS, default=list(OPERATIONS))
@@ -82,11 +82,37 @@ def build_parser():
     parser.add_argument("--max-output-tokens", type=int, help="Generation cap, including EOS and sign; default fits all tasks.")
     parser.add_argument("--steps", type=int)
     parser.add_argument("--batch-size", type=int)
+    embedding = parser.add_mutually_exclusive_group()
+    embedding.add_argument("--embedding-size", type=positive_int,
+                           help="Dimension of each token/position embedding; d_model is twice this value.")
+    embedding.add_argument("--d-model", type=positive_int, help="Total concatenated model width (default: 64).")
+    parser.add_argument("--num-layers", type=positive_int, help="Transformer layers (default: 4).")
+    parser.add_argument("--num-attn-heads", type=positive_int, help="Attention heads (default: 4).")
     parser.add_argument("--eval-inputs", type=int, help="Unique evaluation prompts per task (default 320; smoke test 4).")
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--device", help="Defaults to SHARPNESS_DEVICE, then CUDA/MPS/CPU.")
     parser.add_argument("--output-dir", type=Path, help="Empty/new run directory; defaults to results/arithmetic/<run-id>.")
+    parser.add_argument("--run-name", help="Optional descriptive W&B run name.")
+    parser.add_argument("--wandb-group", help="Optional W&B group for comparing sweep runs.")
     return parser
+
+
+def positive_int(value):
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("Expected a positive integer.")
+    return parsed
+
+
+def build_model_config(args, selector, max_output_tokens):
+    d_model = args.d_model if args.d_model is not None else (
+        2 * args.embedding_size if args.embedding_size is not None else (16 if args.smoke_test else 64))
+    heads = args.num_attn_heads if args.num_attn_heads is not None else 4
+    layers = args.num_layers if args.num_layers is not None else (1 if args.smoke_test else 4)
+    if d_model % 2 or d_model % heads:
+        raise ValueError("d_model must be even and divisible by num_attn_heads.")
+    return dict(d_model=d_model, num_attn_heads=heads, num_layers=layers, dropout=0.0,
+                max_len=selector.prompt_len + max_output_tokens)
 
 
 def build_selector(args):
@@ -99,8 +125,9 @@ def build_selector(args):
     arities = {"addition": args.arity, "multiplication": args.arity,
                "addition_mod_10": 1, "majority": 1}
     tasks = [classes[operation](arity=arities.get(operation, 2),
-                                digits_per_argument=width) for operation in args.operations]
-    payload_len = args.payload_len if args.payload_len is not None else max(task.arity for task in tasks) * width
+                                digits_per_argument=None if operation in ("addition_mod_10", "majority")
+                                else width) for operation in args.operations]
+    payload_len = args.payload_len if args.payload_len is not None else max(2, max(task.arity for task in tasks)) * width
     if not args.grouped_selectors:
         return ArithmeticSelector(tasks, payload_len=payload_len)
     groups = []
@@ -113,8 +140,8 @@ def build_selector(args):
     return ArithmeticSelector(groups=groups, payload_len=payload_len)
 
 
-def main():
-    args = build_parser().parse_args()
+def main(argv=None):
+    args = build_parser().parse_args(argv)
     cluster_cpus = configure_cpu_environment()
     import torch
     from src.arithmetic import ArithmeticTransformer, decode_answer, sample_batch
@@ -156,9 +183,7 @@ def main():
         if argument is not None:
             setattr(config, field, argument)
     torch.manual_seed(args.seed)
-    model_config = dict(d_model=16 if args.smoke_test else 64, num_attn_heads=4,
-                        num_layers=1 if args.smoke_test else 4, dropout=0.0,
-                        max_len=selector.prompt_len + config.max_output_tokens)
+    model_config = build_model_config(args, selector, config.max_output_tokens)
     model = ArithmeticTransformer(**model_config).to(device)
     config.validate(selector, model)
     optimizer_config = {"lr": 1e-4, "weight_decay": 1e-2}
@@ -170,6 +195,8 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     metadata = {
         "experiment": "arithmetic", "seed": args.seed, "device": str(device),
+        "run_name": args.run_name, "wandb_group": args.wandb_group,
+        "model_embedding_size": model_config["d_model"] // 2,
         "smoke_test": args.smoke_test, "loss_name": "SequenceCrossEntropy",
         "loss_reduction": "mean_per_example_mean_valid_token", "optimizer_name": "AdamW",
         "selector_size": selector.selector_size, "payload_len": selector.payload_len,
@@ -177,7 +204,8 @@ def main():
         "selector_groups": selector.group_names, "selector_group_ids": selector.group_ids,
         "selector_probabilities": args.selector_probabilities, "balanced_selectors": args.balanced_selectors,
         "functions": [{"operation": task.operation, "arity": task.arity,
-                       "digits_per_argument": task.digits_per_argument, "sensitivity": task.sensitivity}
+                       "digits_per_argument": task.digits_per_argument,
+                       "argument_width": task.argument_width(selector.payload_len), "sensitivity": task.sensitivity}
                       for task in selector.functions],
         "tokens": {"eos": 10, "minus": 11, "pad": 12, "answer": 13},
         **{f"model_{key}": value for key, value in model_config.items()},
@@ -186,6 +214,7 @@ def main():
     }
     (output_dir / "config.json").write_text(json.dumps(metadata, indent=2) + "\n")
     print(f"Device: {device}; results: {output_dir.resolve()}", flush=True)
+    print(f"Model: {model_config}; batch size: {config.batch_size}; steps: {config.num_steps}", flush=True)
     print("Selectors: " + ", ".join(f"{''.join(map(str, code))}={name}"
                                    for code, name in zip(selector.codes, selector.names)), flush=True)
     progress = DiagnosticProgress(output_dir, device)
@@ -194,6 +223,7 @@ def main():
         import wandb
         run = wandb.init(entity=os.getenv("WANDB_ENTITY", "gaspardtomas-universit-t-des-saarlandes-saarland-university"),
                          project=os.getenv("WANDB_PROJECT", "arithmetic tasks sharpness"), config=metadata,
+                         name=args.run_name, group=args.wandb_group,
                          settings=wandb.Settings(_disable_stats=True))
     try:
         result = train(model, selector, optimizer, config,
@@ -219,6 +249,7 @@ def main():
     else:
         if run is not None:
             run.finish()
+    return output_dir
 
 
 if __name__ == "__main__":

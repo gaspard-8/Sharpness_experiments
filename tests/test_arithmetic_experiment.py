@@ -337,8 +337,9 @@ class ArithmeticTest(unittest.TestCase):
                 self.assertEqual(len(selector.functions), 7)
                 self.assertEqual(selector.names[-2:], ["addition_mod_10_1", "majority_1"])
                 self.assertEqual([task.arity for task in selector.functions], [2, 2, 2, 2, 2, 1, 1])
+                self.assertEqual([task.argument_width(4) for task in selector.functions], [2, 2, 2, 2, 2, 4, 4])
                 payloads = torch.tensor([[9, 9, 1, 1], [0, 0, 7, 7]])
-                for index, answers in ((5, [8, 0]), (6, [9, 0])):
+                for index, answers in ((5, [0, 4]), (6, [1, 0])):
                     targets = selector.targets(selector.inputs_for(index, payloads), 5)
                     self.assertEqual([decode_answer(row) for row in targets.tolist()], answers)
                 held_out = make_evaluation_set(selector, 5, 4)

@@ -584,7 +584,8 @@ project location.
 export CLUSTER_LOGIN=gtomas@YOUR_SUBMISSION_HOST
 ssh "$CLUSTER_LOGIN" 'mkdir -p /nethome/gtomas/projects/sharpness_experiments'
 rsync -av dockerfile .dockerignore requirements.txt test.py test_arithmetic.py src tests \
-  run-test.sh test.sub submit-wandb.sh submit.sh README.md \
+  run-test.sh test.sub submit-wandb.sh submit.sh sweep_arithmetic.py \
+  sweep_arithmetic.sub submit-sweep.sh README.md \
   "$CLUSTER_LOGIN:/nethome/gtomas/projects/sharpness_experiments/"
 ssh "$CLUSTER_LOGIN"
 cd /nethome/gtomas/projects/sharpness_experiments
@@ -635,7 +636,7 @@ On the submission host, with the W&B credentials configured above:
 bash submit.sh
 ```
 
-This runs `test_arithmetic.py --steps 30000 --grouped-selectors --no-loss-spaces`
+This runs `test_arithmetic.py --steps 30000 --payload-len 4 --grouped-selectors --no-loss-spaces`
 with all seven arithmetic tasks. It performs 30,000 optimizer updates with the
 full model (width 64, four layers) and batches of 320, with periodic held-out
 evaluation, gradient, affinity, curvature, and scalar sharpness diagnostics.
@@ -651,10 +652,21 @@ argument: `addition_mod_10` returns the sum of its digits modulo 10 (`987` gives
 zeros count, and majority ties select the smallest digit. Grouped selectors use
 `20` and `21` for these two tasks in the default mix. Both return one digit plus EOS.
 
-The default operand width is two digits for every task; unary tasks use the first
-two payload digits. `--digits-per-argument N` changes that width. Alternatively,
-`--payload-len N` splits the entire payload by each task's arity, so each unary
-task uses all N digits. Use `--operations` to choose a subset of the mix.
+The default four-digit payload is split into two two-digit operands for the
+binary tasks. Majority and addition modulo 10 each use **all four payload
+digits** as their single argument. For example, payload `9911` gives majority
+`1` (smallest digit wins the tie) and digit sum modulo 10 of `0`.
+`--digits-per-argument N` changes the arithmetic operand width; the unary digit
+tasks always consume the resulting full payload. `--payload-len N` instead
+splits N digits by each task's arity. Use `--operations` to choose a subset.
+
+Model options are `--embedding-size`, `--num-layers`, `--num-attn-heads`, and
+`--batch-size`. The token and positional embeddings each have `embedding_size`
+dimensions and are concatenated, so the transformer width is twice that size.
+Alternatively, `--d-model` sets the total width directly; it must be even and
+divisible by the head count. Defaults remain embedding size 32, total width 64,
+four layers, four heads, and batch size 320. Explicit model and batch options
+are preserved in smoke tests.
 
 Logs are saved under `/scratch/gtomas/logs/sharpness_experiments/` as
 `arithmetic.JOB_ID.0.out`, `arithmetic.JOB_ID.0.err`, and `arithmetic.JOB_ID.log`.
@@ -676,6 +688,74 @@ For a local check without submitting or using W&B:
 ```bash
 env/bin/python test_arithmetic.py --smoke-test --no-wandb --device cpu \
   --grouped-selectors --no-loss-spaces
+```
+
+### Sweep arithmetic model and batch hyperparameters
+
+`sweep_arithmetic.py` defines a Cartesian grid of **36 runs**:
+
+| Parameter | Values |
+| --- | --- |
+| Token embedding size (and positional embedding size) | 16, 32, 64 |
+| Total transformer width | 32, 64, 128, respectively |
+| Transformer layers | 2, 4 |
+| Attention heads | 2, 4, 8 |
+| Batch size | 64, 320 |
+
+All combinations have valid head dimensions. Each run performs 30,000 optimizer
+updates with seed 7, AdamW learning rate `1e-4` and weight decay `1e-2`. All seven
+tasks are sampled equally. Every prompt has two selector digits and four payload
+digits; both unary digit tasks consume all four payload digits. The held-out
+evaluation set uses the same seed and 320 inputs per task for every configuration.
+Larger batches see more training examples at the fixed step count. Scalar
+diagnostics remain enabled; tangent and sharpness space searches remain disabled.
+
+Copy the new sweep files and the updated `test_arithmetic.py`, `src/`,
+`submit-wandb.sh`, and `run-test.sh` to the submission host using the copy command
+above. Preview the grid without training or submitting anything:
+
+```bash
+python sweep_arithmetic.py --list
+```
+
+Submit all 36 independent GPU jobs on the cluster:
+
+```bash
+bash submit-sweep.sh
+```
+
+The wrapper selects `sweep_arithmetic.sub` and loads the existing W&B credentials.
+Its 36 processes use `--run-index 0` through `35`. Each has a separate W&B run in
+`arithmetic tasks sharpness`, with a name such as
+`arithmetic-e16-l2-h2-b64-seed7`. Runs from one submission share the W&B group
+`arithmetic-sweep-CLUSTER_ID`. Model dimensions, batch size, operand widths, and
+training settings are recorded in W&B and local `config.json` files.
+
+The resource requests match the existing single-job setup: one GPU with at least
+64 GB GPU memory, two CPUs, 8 GB host RAM, and 4 GB disk per job. The scheduler
+determines how many can run concurrently. Logs use the prefix
+`arithmetic-sweep.CLUSTER_ID.PROCESS_ID`; result archives are saved to the existing
+result directory as `CLUSTER_ID.PROCESS_ID.tar.gz`. Each archive includes both
+Python entrypoints, `src/`, the run config, metrics, and checkpoint.
+
+For a local two-step check of one configuration without uploading to W&B:
+
+```bash
+env/bin/python sweep_arithmetic.py --run-index 0 --smoke-test --no-wandb --device cpu
+```
+
+The smoke flag reduces the number of updates and diagnostic samples; it preserves
+the selected architecture and batch size. To shorten the entire cluster sweep:
+
+```bash
+bash submit-sweep.sh -append 'experiment_args=--steps 1000'
+```
+
+Run the arithmetic and submission regression checks locally:
+
+```bash
+env/bin/python -m unittest discover -s tests -p 'test_arithmetic*.py' -v
+env/bin/python -m unittest discover -s tests -p 'test_submission.py' -v
 ```
 
 ### Submit a short Boolean GPU check, then the full experiment

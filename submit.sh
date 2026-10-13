@@ -15,7 +15,7 @@ export WANDB_PROJECT="${WANDB_PROJECT:-arithmetic tasks sharpness}"
 exec bash "$script_dir/submit-wandb.sh" \
     -append "project_dir=$script_dir" \
     -append 'experiment_script=test_arithmetic.py' \
-    -append 'experiment_args=--steps 30000 --grouped-selectors --no-loss-spaces' \
+    -append 'experiment_args=--steps 30000 --payload-len 4 --grouped-selectors --no-loss-spaces' \
     -append 'output=$(log_dir)/arithmetic.$(ClusterId).$(ProcId).out' \
     -append 'error=$(log_dir)/arithmetic.$(ClusterId).$(ProcId).err' \
     -append 'log=$(log_dir)/arithmetic.$(ClusterId).log' \
