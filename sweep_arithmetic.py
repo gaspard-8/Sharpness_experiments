@@ -53,7 +53,7 @@ def experiment_arguments(args):
     config = grid[args.run_index]
     name = (f"arithmetic-e{config['embedding_size']}-l{config['num_layers']}-"
             f"h{config['num_attn_heads']}-b{config['batch_size']}-seed{args.seed}")
-    argv = ["--payload-len", "4", "--grouped-selectors", "--no-loss-spaces",
+    argv = ["--payload-len", "4", "--grouped-selectors",
             "--seed", str(args.seed), "--run-name", name, "--wandb-group", args.wandb_group,
             "--wandb" if args.wandb else "--no-wandb"]
     for option, value in config.items():

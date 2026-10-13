@@ -56,12 +56,17 @@ class TaskAffinityTest(unittest.TestCase):
         for i, row in enumerate(expected):
             for j, value in enumerate(row):
                 self.assertAlmostEqual(metrics[f"affinity/first_{i}_to_first_{j}"], value, places=12)
-        self.assertEqual([metrics[f"affinity/source_gradient_norm/first_{i}"] for i in range(4)],
-                         [2., 4., 6., 4.])
+        expected_curvature = [[.04, .16, 0, .16], [.16, .64, 0, .64],
+                              [0, 0, 3.24, 0], [.16, .64, 0, .64]]
+        for i, row in enumerate(expected_curvature):
+            for j, value in enumerate(row):
+                self.assertAlmostEqual(metrics[f"local_curvature/first_{i}_to_first_{j}"], value, places=12)
+        self.assertEqual(set(metrics), {f"{kind}/first_{i}_to_first_{j}"
+                                       for kind in ("affinity", "local_curvature")
+                                       for i in range(4) for j in range(4)})
         moved_points = [point for point in model.points if point.norm() > 0]
         self.assertTrue(moved_points)
         self.assertEqual({round(float(point.norm()), 12) for point in moved_points}, {.2, .4, .6})
-        self.assertEqual(metrics["affinity/learning_rate"], .1)
         self.assertNotIn("affinity/radius", metrics)
 
     def test_zero_target_baseline_is_undefined_but_zero_source_is_a_valid_zero_step(self):
@@ -69,12 +74,12 @@ class TaskAffinityTest(unittest.TestCase):
         probes = torch.ones((3, 1), dtype=torch.long)
         metrics = task_affinity_metrics(model, SelectorFunction([First()] * 2),
                                         torch.nn.MSELoss(), probes, learning_rate=.1)
-        self.assertEqual(metrics["affinity/baseline_loss/first_1"], 0.)
-        self.assertEqual(metrics["affinity/target_valid/first_1"], 0.)
         self.assertTrue(math.isnan(metrics["affinity/first_0_to_first_1"]))
-        self.assertEqual(metrics["affinity/source_valid/first_1"], 1.)
         self.assertEqual(metrics["affinity/first_1_to_first_0"], 0.)
         self.assertTrue(math.isnan(metrics["affinity/first_1_to_first_1"]))
+        self.assertAlmostEqual(metrics["local_curvature/first_0_to_first_1"], .04, places=12)
+        self.assertEqual(metrics["local_curvature/first_1_to_first_0"], 0.)
+        self.assertEqual(metrics["local_curvature/first_1_to_first_1"], 0.)
 
     def test_relative_loss_normalization_and_mean_reductions_with_shared_probes(self):
         # Different offsets give target baselines .25, .5625 and .0625.
@@ -103,12 +108,10 @@ class TaskAffinityTest(unittest.TestCase):
                 probes = torch.ones((2, 1), dtype=torch.long)
                 metrics = task_affinity_metrics(model, SelectorFunction([First()] * 2),
                                                 torch.nn.MSELoss(), probes)
-                self.assertEqual(metrics["affinity/source_valid/first_0"], float(math.isfinite(scale)))
                 if math.isfinite(scale):
                     self.assertEqual(metrics["affinity/first_0_to_first_1"], 0.)
                 else:
                     self.assertTrue(math.isnan(metrics["affinity/first_0_to_first_1"]))
-                self.assertEqual(metrics["affinity/source_valid/first_1"], 1.)
 
     def test_single_task_without_selector_and_frozen_or_unused_parameters(self):
         for function in (First(name="custom"), SelectorFunction([First(name="custom")])):
@@ -165,8 +168,7 @@ class TaskAffinityTest(unittest.TestCase):
                                         torch.nn.MSELoss(), payloads, eval_batch_size=4)
                    for _ in range(2)]
         for name, value in results[0].items():
-            if name != "affinity/compute_seconds":
-                self.assertEqual(value, results[1][name])
+            self.assertEqual(value, results[1][name])
         torch.testing.assert_close(torch.get_rng_state(), rng_before, rtol=0, atol=0)
         for name, value in model.state_dict().items():
             torch.testing.assert_close(value, state[name], rtol=0, atol=0)
@@ -189,10 +191,10 @@ class TaskAffinityTest(unittest.TestCase):
         metrics = task_affinity_metrics(model, First(), torch.nn.MSELoss(), payloads, learning_rate=rates)
         # Gradient (-2,-2) gives movement (.2,.4), prediction .6, loss .16.
         self.assertAlmostEqual(metrics["affinity/first_to_first"], .84, places=12)
-        self.assertEqual(metrics["affinity/learning_rate_min"], 0.)
-        self.assertEqual(metrics["affinity/learning_rate_max"], .2)
+        self.assertAlmostEqual(metrics["local_curvature/first_to_first"], .36, places=12)
         metrics = task_affinity_metrics(model, First(), torch.nn.MSELoss(), payloads, learning_rate=0.)
         self.assertEqual(metrics["affinity/first_to_first"], 0.)
+        self.assertEqual(metrics["local_curvature/first_to_first"], 0.)
 
 
 class TaskAffinityLoggingTest(unittest.TestCase):
@@ -208,13 +210,15 @@ class TaskAffinityLoggingTest(unittest.TestCase):
             # anew, rather than frozen at the initial optimizer configuration.
             optimizer.param_groups[0]["lr"] = .02
             return {"affinity/first_0_to_first_0": .1, "affinity/first_0_to_first_1": -.2,
-                    "affinity/first_1_to_first_0": .3, "affinity/first_1_to_first_1": .4}
+                    "affinity/first_1_to_first_0": .3, "affinity/first_1_to_first_1": .4,
+                    "local_curvature/first_0_to_first_0": 1., "local_curvature/first_0_to_first_1": 2.,
+                    "local_curvature/first_1_to_first_0": 3., "local_curvature/first_1_to_first_1": 4.}
 
         with patch("src.training.task_affinity_metrics", side_effect=capture) as measured:
             train(model, SelectorFunction([First()] * 2), torch.nn.MSELoss(),
                   optimizer, max_len=4, min_len=4,
                   batch_size=4, num_steps=201, wandb_run=run, affinity_num_inputs=7,
-                  affinity_seed=13, gradient_interval=1000, curvature_interval=1000,
+                  affinity_seed=13,
                   sharpness_interval=1000)
         self.assertEqual([step for step, metrics in run.logged if "affinity/matrix" in metrics], [100, 200])
         self.assertEqual(measured.call_count, 2)
@@ -230,6 +234,9 @@ class TaskAffinityLoggingTest(unittest.TestCase):
                 table = metrics["affinity/matrix"]
                 self.assertEqual(table.columns, ["source / target", "first_0", "first_1"])
                 self.assertEqual(table.data, [["first_0", .1, -.2], ["first_1", .3, .4]])
+                curvature = metrics["local_curvature/matrix"]
+                self.assertEqual(curvature.columns, table.columns)
+                self.assertEqual(curvature.data, [["first_0", 1., 2.], ["first_1", 3., 4.]])
 
     def test_adamw_training_and_optimizer_state_are_unchanged(self):
         torch.manual_seed(6)

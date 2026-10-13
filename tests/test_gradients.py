@@ -8,7 +8,6 @@ import torch
 from src.functions import First, Parity, SelectorFunction
 from src.metrics import gradient_metrics
 from src.model import TransformerModel
-from src.training import train
 
 
 class LinearProbeModel(torch.nn.Module):
@@ -195,57 +194,6 @@ class GradientMetricsTest(unittest.TestCase):
         self.assertEqual([module.training for module in model.modules()], modes)
 
 
-class GradientLoggingTest(unittest.TestCase):
-    def test_logging_uses_fixed_shared_probes_after_updates(self):
-        model = LinearProbeModel(torch.ones((4, 2)))
-        run = CapturingRun()
-        probe_weights = []
-
-        def capture(*args):
-            probe_weights.append(float(args[0].weight.detach()))
-            return {"gradient_norm/first_0": 1.0}
-
-        with patch("src.training.gradient_metrics", side_effect=capture) as measured:
-            train(
-                model, SelectorFunction([First()] * 4), torch.nn.MSELoss(),
-                torch.optim.SGD(model.parameters(), lr=0.01),
-                max_len=4, min_len=4, batch_size=8, num_steps=5,
-                wandb_run=run, gradient_interval=2, gradient_num_inputs=7,
-                gradient_seed=13, selector_probabilities=[0., 0., 0., 1.],
-            )
-        self.assertEqual([step for step, metrics in run.logged if "gradient_norm/first_0" in metrics], [2, 4])
-        self.assertEqual(measured.call_count, 2)
-        probes = [call.args[3] for call in measured.call_args_list]
-        self.assertIs(probes[0], probes[1])
-        torch.testing.assert_close(probes[0], torch.randint(0, 2, (7, 2), generator=torch.Generator().manual_seed(13)))
-        self.assertTrue(all(weight > 0 for weight in probe_weights))
-        self.assertNotEqual(probe_weights[0], probe_weights[1])
-
-    def test_metrics_do_not_change_sgd_training_or_randomness(self):
-        torch.manual_seed(8)
-        original = TransformerModel(d_model=8, num_attn_heads=2, num_layers=1, max_len=4, dropout=0.2)
-        final_models = []
-        final_rngs = []
-        losses = []
-        run = CapturingRun()
-        for logger in (None, run):
-            model = copy.deepcopy(original)
-            torch.manual_seed(9)
-            losses.append(train(
-                model, SelectorFunction([First(), Parity()]), torch.nn.MSELoss(),
-                torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.7),
-                max_len=4, min_len=4, batch_size=4, num_steps=3,
-                wandb_run=logger, gradient_interval=1, gradient_num_inputs=4,
-                gradient_seed=11,
-            ))
-            final_models.append(model)
-            final_rngs.append(torch.get_rng_state())
-        self.assertEqual(losses[0], losses[1])
-        torch.testing.assert_close(final_rngs[0], final_rngs[1])
-        for a, b in zip(final_models[0].parameters(), final_models[1].parameters()):
-            torch.testing.assert_close(a, b, rtol=0, atol=0)
-        for _, metrics in run.logged:
-            self.assertTrue(math.isfinite(metrics["gradient_alignment/first_vs_parity"]))
 
 
 if __name__ == "__main__":

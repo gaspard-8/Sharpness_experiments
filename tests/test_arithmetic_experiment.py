@@ -224,7 +224,8 @@ class ArithmeticTest(unittest.TestCase):
         targets = encode_answers([4, -2, 5], 4)
         metrics = sequence_metrics(selector, inputs, torch.zeros(3, 4, 12), targets, generated)
         self.assertAlmostEqual(metrics["accuracy"], 2 / 3)
-        self.assertAlmostEqual(metrics["truncation_rate"], 1 / 3)
+        self.assertNotIn("truncation_rate", metrics)
+        self.assertNotIn("eos_rate", metrics)
 
     def test_gradient_and_affinity_adapters_match_direct_arithmetic_loss(self):
         selector = ArithmeticSelector(groups=[FunctionGroup("one", [Addition()]),
@@ -254,6 +255,11 @@ class ArithmeticTest(unittest.TestCase):
                 expected = float(1 - criterion(logits, labels) / baseline)
                 self.assertAlmostEqual(affinities[f"affinity/{selector.names[source]}_to_{selector.names[target]}"],
                                        expected, places=10)
+                change = criterion(logits, labels) - baseline
+                linear = sum((target_grad * (-lr * source_grad)).sum()
+                             for target_grad, source_grad in zip(direct_gradients[target], grads))
+                self.assertAlmostEqual(affinities[f"local_curvature/{selector.names[source]}_to_{selector.names[target]}"],
+                                       float(change - linear), places=10)
 
     def test_diagnostics_evaluation_preserve_state_gradients_modes_rng(self):
         selector = ArithmeticSelector([Addition(), Subtraction()], payload_len=2)
@@ -299,11 +305,9 @@ class ArithmeticTest(unittest.TestCase):
             torch.manual_seed(11)
             config = TrainingConfig(num_steps=2, batch_size=4, max_output_tokens=5,
                                     eval_interval=1, eval_num_inputs_per_function=3, eval_batch_size=2,
-                                    gradient_interval=interval, affinity_interval=interval,
-                                    curvature_interval=interval, sharpness_interval=interval,
-                                    gradient_num_inputs=2, affinity_num_inputs=2, sharpness_num_inputs=2,
-                                    curvature_num_points=1, sharpness_num_perturbations=1,
-                                    sensitivity_num_inputs=8)
+                                    affinity_interval=interval, sharpness_interval=interval,
+                                    affinity_num_inputs=2, sharpness_num_inputs=2,
+                                    sharpness_num_perturbations=1)
             with tempfile.TemporaryDirectory() as directory:
                 result = train(model, selector, optimizer, config, output_dir=Path(directory))
                 self.assertEqual(len((Path(directory) / "metrics.jsonl").read_text().splitlines()), 2)

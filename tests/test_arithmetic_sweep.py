@@ -49,7 +49,6 @@ class ArithmeticSweepTest(unittest.TestCase):
                 self.assertEqual(args.steps, 30_000)
                 self.assertTrue(args.wandb)
                 self.assertFalse(args.smoke_test)
-                self.assertFalse(args.loss_spaces)
                 self.assertEqual(args.payload_len, 4)
                 selector = experiment.build_selector(args)
                 model_config = experiment.build_model_config(args, selector, selector.required_output_tokens)
@@ -131,7 +130,6 @@ class ArithmeticSweepTest(unittest.TestCase):
                 with patch.dict(sys.modules, {"wandb": wandb}), \
                      patch.object(wandb, "init", return_value=run) as initialize, \
                      patch.object(experiment, "configure_cpu_environment", return_value=None), \
-                     patch("src.arithmetic_training.loss_spaces", side_effect=AssertionError("spaces disabled")), \
                      contextlib.redirect_stdout(io.StringIO()):
                     output = sweep.main(["--run-index", str(index), "--smoke-test", "--device", "cpu",
                                          "--output-dir", directory, "--wandb-group", "test-sweep"])
@@ -143,7 +141,8 @@ class ArithmeticSweepTest(unittest.TestCase):
                 self.assertEqual(config["model_num_attn_heads"], chosen["num_attn_heads"])
                 self.assertEqual(config["train_batch_size"], chosen["batch_size"])
                 self.assertEqual(config["train_num_steps"], 2)
-                self.assertFalse(config["train_space_enabled"])
+                self.assertFalse(any(key.startswith(("train_space_", "train_gradient_", "train_curvature_"))
+                                     for key in config))
                 self.assertEqual([f["argument_width"] for f in config["functions"]], [2] * 5 + [4, 4])
                 self.assertEqual(initialize.call_args.kwargs["group"], "test-sweep")
                 self.assertEqual(json.loads(json.dumps(initialize.call_args.kwargs["config"])), config)
@@ -154,6 +153,10 @@ class ArithmeticSweepTest(unittest.TestCase):
                     self.assertIn("eval/accuracy/addition_mod_10_1", metrics)
                     self.assertIn("eval/accuracy/majority_1", metrics)
                     self.assertIn("affinity/matrix", metrics)
+                    self.assertIn("local_curvature/matrix", metrics)
+                    allowed = {"loss", "token_accuracy", "teacher_forced_accuracy", "eval",
+                               "affinity", "local_curvature", "sharpness"}
+                    self.assertTrue(all(key.split("/")[0] in allowed for key in metrics))
                     self.assertFalse(any(key.startswith("spaces/") for key in metrics))
                 self.assertTrue((output / "checkpoint.pt").is_file())
                 self.assertFalse(list(output.glob("spaces_step_*.pt")))

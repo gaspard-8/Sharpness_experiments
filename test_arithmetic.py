@@ -2,7 +2,7 @@
 
 Quick local check (all periodic diagnostics, no network):
     env/bin/python test_arithmetic.py --smoke-test --no-wandb
-    env/bin/python test_arithmetic.py --smoke-test --no-wandb --grouped-selectors --no-loss-spaces
+    env/bin/python test_arithmetic.py --smoke-test --no-wandb --grouped-selectors
 
 Full experiment (same default transformer dimensions and AdamW as test.py):
     python test_arithmetic.py --grouped-selectors --digits-per-argument 2
@@ -28,15 +28,8 @@ cross entropy per example, then mean over examples. Evaluation accuracy is
 exact autoregressive sequence accuracy including EOS; teacher-forced metrics
 have separate names. Fixed unique evaluation inputs are excluded from training.
 
-Sensitivity is the sum of probabilities that replacing one payload digit by
-a uniformly different digit changes the integer answer. Addition, multiplication
-and addition_mod_10 use exact formulas; the other functions use seeded Monte Carlo. Division/remainder
-are uniform over valid operands, and invalid mutations contribute zero. Selector
-tokens are excluded. Each function has a sensitivity override field.
-
-Affinity, gradient alignment, curvature and optional final loss spaces reuse
-src.metrics/src.spaces unchanged through an adapter. Their losses use fixed
-teacher-forced contexts and the same cross entropy as training. Output sharpness
+Affinity and local curvature share the task diagnostics in src.metrics. Both use
+fixed teacher-forced contexts and the same cross entropy as training. Output sharpness
 uses Gaussian parameter noise (excluding positions) and squared changes of token
 probabilities, averaged over vocabulary, valid positions, examples, then tasks.
 It is a sequence-output extension, not numerically comparable to Boolean MSE.
@@ -44,7 +37,6 @@ Probes share digit payloads; invalid operands are resampled per task. Diagnostic
 probes are fixed but are not held out. Every diagnostic works without W&B.
 
 Each run saves config.json, metrics.jsonl and checkpoint.pt in a fresh directory.
---loss-spaces additionally saves spaces_step_N.pt (disabled by default).
 Existing Boolean cluster launchers still invoke test.py; invoke this file
 explicitly to run arithmetic with the same installed dependencies.
 """
@@ -69,7 +61,6 @@ def build_parser():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--smoke-test", action="store_true")
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--loss-spaces", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--grouped-selectors", action=argparse.BooleanOptionalAction, default=False)
     layout = parser.add_mutually_exclusive_group()
     layout.add_argument("--digits-per-argument", type=int, help="Digits per arithmetic operand (default: 2); digit tasks use the full payload.")
@@ -159,25 +150,20 @@ def main(argv=None):
     if device.type == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA was requested but is unavailable.")
     selector = build_selector(args)
-    config = TrainingConfig(seed=args.seed, eval_seed=args.seed, gradient_seed=args.seed,
-                            affinity_seed=args.seed, sharpness_seed=args.seed, space_seed=args.seed,
-                            space_direction_seed=args.seed, space_enabled=args.loss_spaces,
+    config = TrainingConfig(seed=args.seed, eval_seed=args.seed,
+                            affinity_seed=args.seed, sharpness_seed=args.seed,
                             max_output_tokens=args.max_output_tokens if args.max_output_tokens is not None
                             else selector.required_output_tokens)
     if args.smoke_test:
         config.num_steps = 2
         config.batch_size = max(16, len(selector.functions))
-        config.eval_interval = config.gradient_interval = config.affinity_interval = 1
-        config.curvature_interval = config.sharpness_interval = 1
+        config.eval_interval = config.affinity_interval = 1
+        config.sharpness_interval = 1
         config.eval_num_inputs_per_function = 4
         config.eval_batch_size = 16
-        config.gradient_num_inputs = config.affinity_num_inputs = config.sharpness_num_inputs = 4
+        config.affinity_num_inputs = config.sharpness_num_inputs = 4
         config.affinity_eval_batch_size = 16
-        config.curvature_num_points = config.sharpness_num_perturbations = 1
-        config.sensitivity_num_inputs = 32
-        config.space_num_inputs = 4
-        config.space_num_directions = 1
-        config.space_hvp_budget = 4
+        config.sharpness_num_perturbations = 1
     for argument, field in ((args.steps, "num_steps"), (args.batch_size, "batch_size"),
                             (args.eval_inputs, "eval_num_inputs_per_function")):
         if argument is not None:
@@ -205,7 +191,7 @@ def main(argv=None):
         "selector_probabilities": args.selector_probabilities, "balanced_selectors": args.balanced_selectors,
         "functions": [{"operation": task.operation, "arity": task.arity,
                        "digits_per_argument": task.digits_per_argument,
-                       "argument_width": task.argument_width(selector.payload_len), "sensitivity": task.sensitivity}
+                       "argument_width": task.argument_width(selector.payload_len)}
                       for task in selector.functions],
         "tokens": {"eos": 10, "minus": 11, "pad": 12, "answer": 13},
         **{f"model_{key}": value for key, value in model_config.items()},
@@ -228,7 +214,7 @@ def main(argv=None):
     try:
         result = train(model, selector, optimizer, config,
                        selector_probabilities=args.selector_probabilities, balanced_selectors=args.balanced_selectors,
-                       wandb_run=run, output_dir=output_dir, space_progress=progress)
+                       wandb_run=run, output_dir=output_dir)
         torch.save({"model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(),
                     "model_config": model_config, "config": metadata, "completed_steps": config.num_steps},
                    output_dir / "checkpoint.pt")

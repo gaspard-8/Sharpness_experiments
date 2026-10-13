@@ -52,7 +52,6 @@ class ArithmeticSubmissionTest(unittest.TestCase):
         self.assertEqual(parsed.steps, 30_000)
         self.assertEqual(parsed.payload_len, 4)
         self.assertTrue(parsed.grouped_selectors)
-        self.assertFalse(parsed.loss_spaces)
         self.assertEqual(len(parsed.operations), 7)
         self.assertIn("addition_mod_10", parsed.operations)
         self.assertIn("majority", parsed.operations)
@@ -62,7 +61,7 @@ class ArithmeticSubmissionTest(unittest.TestCase):
 
     def test_user_append_overrides_follow_launcher_defaults(self):
         arguments, _ = self.submission_arguments(
-            "-append", "experiment_args=--steps 1000 --grouped-selectors --digits-per-argument 3 --no-loss-spaces",
+            "-append", "experiment_args=--steps 1000 --grouped-selectors --digits-per-argument 3",
             "-append", "request_memory=12GB",
         )
         settings = self.appended_settings(arguments)
@@ -71,7 +70,6 @@ class ArithmeticSubmissionTest(unittest.TestCase):
         parsed = test_arithmetic.build_parser().parse_args(shlex.split(settings["experiment_args"]))
         self.assertFalse(parsed.smoke_test)
         self.assertEqual(parsed.steps, 1000)
-        self.assertFalse(parsed.loss_spaces)
         self.assertEqual(parsed.digits_per_argument, 3)
 
     def test_condor_options_are_forwarded_unchanged(self):

@@ -6,7 +6,6 @@ import torch
 from src.functions import Parity, SelectorFunction
 from src.model import TransformerModel
 from src.spaces import _lanczos, _maximize_quadratic, loss_spaces
-from src.training import train
 
 
 class AxisModel(torch.nn.Module):
@@ -507,85 +506,8 @@ class LossSpacesTest(unittest.TestCase):
                 actual @ actual.T, torch.eye(actual.shape[0]), atol=1e-5, rtol=1e-5,
             )
 
-    def test_disabled_spaces_skip_measurement_and_artifact_with_a_configured_radius(self):
-        for options in ({}, {"space_enabled": False}):
-            with self.subTest(options=options):
-                model = AxisModel()
-                run = CapturingRun()
-                with patch("src.training.loss_spaces") as measured, patch("wandb.Artifact") as artifact:
-                    losses = train(
-                        model, SelectorFunction([Parity(), Parity()]), torch.nn.MSELoss(),
-                        torch.optim.SGD(model.parameters(), lr=.01), max_len=2,
-                        min_len=2, batch_size=2, num_steps=2, wandb_run=run,
-                        sharpness_interval=100, gradient_interval=100,
-                        curvature_interval=100, space_delta=.02, **options,
-                    )
-                self.assertEqual(len(losses), 2)
-                self.assertEqual(len(run.logged), 2)
-                measured.assert_not_called()
-                artifact.assert_not_called()
-                self.assertEqual(run.artifacts, [])
-                self.assertFalse(any(key.startswith("spaces/") for _, metrics in run.logged for key in metrics))
 
-    def test_training_measures_only_at_end(self):
-        model = AxisModel()
-        run = CapturingRun()
-        with patch("src.training.loss_spaces", return_value=({"spaces/search_dim": 2.0}, {"directions": [1, 2]})) as measured, patch("wandb.Artifact", FakeArtifact):
-            train(
-                model, SelectorFunction([Parity(), Parity()]), torch.nn.MSELoss(),
-                torch.optim.SGD(model.parameters(), lr=0.01), max_len=2,
-                min_len=2, batch_size=2, num_steps=5, wandb_run=run,
-                sharpness_interval=100, gradient_interval=100,
-                curvature_interval=100, space_enabled=True, space_delta=0.02,
-                space_epsilon=0.01, space_num_inputs=3, space_seed=17,
-            )
-        self.assertEqual(measured.call_count, 1)
-        self.assertEqual([aliases for _, aliases in run.artifacts], [["step-5"]])
-        self.assertEqual([artifact.metadata["step"] for artifact, _ in run.artifacts], [5])
-        self.assertEqual([artifact.saved for artifact, _ in run.artifacts], [{"directions": [1, 2], "run_id": "test-run"}])
-        self.assertEqual(
-            [step for step, metrics in run.logged if "spaces/search_dim" in metrics],
-            [5],
-        )
-        self.assertEqual(measured.call_args.kwargs["hvp_budget"], 10_000)
-        self.assertEqual(measured.call_args.kwargs["num_directions"], 100)
-        self.assertEqual(run.artifacts[0][0].metadata["hvp_budget"], 10_000)
 
-    def test_training_logs_real_lanczos_results_and_serializes_directions(self):
-        model = AxisModel()
-        run = CapturingRun()
-        with patch("wandb.Artifact", FakeArtifact):
-            train(
-                model, SelectorFunction([Parity(), Parity()]), torch.nn.MSELoss(),
-                torch.optim.SGD(model.parameters(), lr=0.01), max_len=2,
-                min_len=2, batch_size=2, num_steps=2, wandb_run=run,
-                sharpness_interval=100, gradient_interval=100,
-                curvature_interval=100, space_enabled=True, space_delta=0.02,
-                space_epsilon=0.01, space_num_inputs=3,
-            )
-        self.assertEqual(len(run.artifacts), 1)
-        artifact, aliases = run.artifacts[0]
-        self.assertEqual(aliases, ["step-2"])
-        self.assertEqual(artifact.saved["format_version"], 5)
-        self.assertEqual(artifact.saved["hvp_budget"], 10_000)
-        self.assertEqual(artifact.saved["parameter_names"], ["weights"])
-        final_step, metrics = run.logged[-1]
-        self.assertEqual(final_step, 2)
-        self.assertEqual(artifact.saved["run_id"], run.id)
-        for kind in ("sharpness", "tangent"):
-            pair = "parity_0_and_parity_1"
-            shared = artifact.saved["overlaps"][kind][pair]
-            self.assertEqual(metrics[f"spaces/{kind}_overlap_dim/{pair}"], shared["directions"].shape[1])
-            self.assertEqual(metrics[f"spaces/{kind}_overlap_verified_dim/{pair}"], int(shared["loss_verified"].sum()))
-        self.assertNotIn("spaces/hvp_budget", run.logged[0][1])
-        for name in ("parity_0", "parity_1"):
-            self.assertEqual(metrics[f"spaces/hvp_count/{name}"], 3)
-            result = artifact.saved["tasks"][name]
-            self.assertEqual(result["hvp_count"], 3)
-            for kind in ("tangent", "sharpness"):
-                self.assertEqual(result[kind].shape[0], 3)
-                changes = result[f"{kind}_loss_changes"].max(dim=1).values
-                self.assertTrue(bool((changes <= 0.01).all()) if kind == "tangent" else bool((changes > 0.01).all()))
 
 
 if __name__ == "__main__":

@@ -603,8 +603,6 @@ def sequence_metrics(selector: ArithmeticSelector, inputs: torch.Tensor,
     }
     if generated is not None:
         values["accuracy"] = (generated == targets).all(-1).float()
-        values["eos_rate"] = (generated == EOS).any(-1).float()
-        values["truncation_rate"] = (~(generated == EOS).any(-1)).float()
     metrics = {key: float(value.mean()) for key, value in values.items()}
     ids = selector.function_ids(inputs)
     for index, name in enumerate(selector.names):

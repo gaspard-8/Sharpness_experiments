@@ -8,7 +8,6 @@ import torch
 from src.functions import First, Parity, SelectorFunction
 from src.metrics import multi_task_curvature
 from src.model import TransformerModel
-from src.training import train
 
 
 def snapshot(model):
@@ -218,61 +217,6 @@ class CurvatureTest(unittest.TestCase):
         torch.testing.assert_close(actual, expected, rtol=1e-3, atol=1e-3)
 
 
-class CurvatureLoggingTest(unittest.TestCase):
-    def test_independent_interval_captures_the_actual_step_and_reuses_fixed_probes(self):
-        model = PolynomialModel(power=1).float()
-        optimizer = torch.optim.AdamW(model.parameters(), lr=0.02)
-        run = CapturingRun()
-        endpoints = []
-        original_step = optimizer.step
-
-        def step(*args, **kwargs):
-            previous = snapshot(model)
-            result = original_step(*args, **kwargs)
-            endpoints.append((previous, snapshot(model)))
-            return result
-
-        measured_steps = []
-
-        def measure(*args, **kwargs):
-            measured_steps.append((args[4], snapshot(args[0])))
-            return {"curvature/multi_task": 123.0}
-
-        with patch.object(optimizer, "step", side_effect=step), patch(
-            "src.training.multi_task_curvature", side_effect=measure,
-        ) as curvature, patch("src.training.gradient_metrics", return_value={}) as gradients:
-            train(
-                model, First(), torch.nn.MSELoss(), optimizer,
-                max_len=4, min_len=4, batch_size=4, num_steps=5, wandb_run=run,
-                gradient_interval=3, gradient_num_inputs=7, gradient_seed=13,
-                curvature_interval=2, curvature_num_points=5,
-            )
-        self.assertEqual([step for step, metrics in run.logged if "curvature/multi_task" in metrics], [2, 4])
-        torch.testing.assert_close(measured_steps, [endpoints[1], endpoints[3]], rtol=0, atol=0)
-        probes = curvature.call_args_list[0].args[3]
-        self.assertIs(probes, curvature.call_args_list[1].args[3])
-        self.assertIs(probes, gradients.call_args.args[3])
-        torch.testing.assert_close(probes, torch.randint(0, 2, (7, 4), generator=torch.Generator().manual_seed(13)))
-        self.assertEqual(curvature.call_args.kwargs["num_points"], 5)
-
-    def test_curvature_does_not_change_adamw_training_or_optimizer_state(self):
-        torch.manual_seed(8)
-        original = TransformerModel(d_model=8, num_attn_heads=2, num_layers=1, max_len=4, dropout=0.2)
-        results = []
-        run = CapturingRun()
-        for logger in (None, run):
-            model = copy.deepcopy(original)
-            optimizer = torch.optim.AdamW(model.parameters(), lr=0.01)
-            torch.manual_seed(9)
-            losses = train(
-                model, SelectorFunction([First(), Parity()]), torch.nn.MSELoss(), optimizer,
-                max_len=4, min_len=4, batch_size=4, num_steps=3, wandb_run=logger,
-                gradient_interval=1, gradient_num_inputs=4, gradient_seed=11,
-                curvature_interval=1, curvature_num_points=2,
-            )
-            results.append((losses, model.state_dict(), optimizer.state_dict(), torch.get_rng_state()))
-        torch.testing.assert_close(results[0], results[1], rtol=0, atol=0)
-        self.assertTrue(all(math.isfinite(metrics["curvature/multi_task"]) for _, metrics in run.logged))
 
 
 if __name__ == "__main__":

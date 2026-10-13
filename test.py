@@ -34,8 +34,6 @@ from src.training import sample_batch, train
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train the sharpness experiment and log to W&B.")
     parser.add_argument("--smoke-test", action="store_true", help="Run two small updates and the enabled diagnostics.")
-    parser.add_argument("--loss-spaces", action=argparse.BooleanOptionalAction, default=False,
-                        help="Enable the final tangent/sharpness spaces and overlaps (disabled by default).")
     args = parser.parse_args()
     faulthandler.enable()
     seed = 7
@@ -63,37 +61,18 @@ def main() -> None:
         "sharpness_num_inputs": 32,
         "sharpness_num_perturbations": 4,
         "sharpness_rho": 0.02,
-        "gradient_interval": 20,
-        "gradient_num_inputs": 256,
-        "gradient_seed": seed,
         "affinity_interval": 100,
         "affinity_num_inputs": 64,
         "affinity_eval_batch_size": 256,
         "affinity_seed": seed,
-        "curvature_interval": 100,
-        "curvature_num_points": 3,
-        "space_enabled": args.loss_spaces,
-        "space_delta": 0.02,
-        "space_epsilon": 0.002,
-        "space_num_inputs": 64,
-        "space_seed": seed,
-        "space_num_directions": 100,
-        "space_direction_seed": seed,
-        "space_hvp_budget": 10_000,
-        "space_intersection_cosine": 0.999,
     }
     if args.smoke_test:
         training_config.update(
             num_steps=2, batch_size=16, eval_interval=1,
             eval_num_inputs_per_function=4, eval_batch_size=16,
             sharpness_interval=1, sharpness_num_inputs=4, sharpness_num_perturbations=1,
-            gradient_interval=1, gradient_num_inputs=4,
             affinity_interval=1, affinity_num_inputs=4, affinity_eval_batch_size=16,
-            curvature_interval=1, curvature_num_points=1,
-            space_num_inputs=4, space_num_directions=1,
-            space_hvp_budget=4,
         )
-    print(f"Final loss-space diagnostics: {'enabled' if training_config['space_enabled'] else 'disabled'}", flush=True)
     model_config = {
         "d_model": 64,
         "num_attn_heads": 4,
@@ -173,7 +152,6 @@ def main() -> None:
             optimizer=optimizer,
             device=device,
             wandb_run=run,
-            space_progress=progress,
             **training_config,
         )
     except BaseException as error:

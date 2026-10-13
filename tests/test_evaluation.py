@@ -160,7 +160,7 @@ class EvaluationTest(unittest.TestCase):
         config = dict(
             max_len=4, min_len=4, batch_size=6, num_steps=21,
             balanced_selectors=True, eval_interval=10, eval_num_inputs_per_function=3,
-            eval_batch_size=4, eval_seed=12, gradient_interval=100, curvature_interval=100,
+            eval_batch_size=4, eval_seed=12,
         )
         try:
             torch.manual_seed(21)

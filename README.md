@@ -190,346 +190,95 @@ still reserved but evaluation forwards are skipped. The independent
 `evaluate_fixed_set()` helper can measure the set without W&B. The older
 `evaluate()` helper still reports loss on freshly sampled inputs.
 
-Training logs `gradient_norm/<task>` and
-`gradient_alignment/<task_i>_vs_<task_j>` every `gradient_interval` completed
-optimizer steps (default `20`). Each gradient is the gradient of that task's
-mean loss with respect to all trainable parameters, including positional
-embeddings. Norms are Euclidean; alignment is cosine similarity of the two
-mean-loss gradients. Each distinct pair is logged once. Positive cosine
-indicates locally compatible descent directions, negative cosine indicates
-conflict, and zero indicates first-order orthogonality. Cosine is recorded as
-NaN when either gradient norm is at most `1e-12`.
+## Affinity and local curvature
 
-The measurement uses `gradient_num_inputs` uniform binary payloads (default
-`256`), shared across selectors and fixed throughout each `train` call, at
-total input length `max_len`. `gradient_seed` controls a separate probe RNG
-(default `0`; the example sets it to the experiment seed), so these samples do
-not consume training randomness. Each task is evaluated with its own selector
-and labels, without weighting by training probabilities. Duplicate functions
-remain distinct tasks, e.g. `first_0`, `first_1`, and `first_2`; unused selector
-codes are excluded. The model runs in evaluation mode for these measurements,
-and its training modes and existing gradients are preserved. The gradient
-diagnostics report per-task norms and pairwise alignment, with no aggregate
-alignment score.
-These metrics describe raw loss gradients. AdamW's actual updates also depend
-on its running gradient moments, adaptive scaling, and weight decay.
+Training retains loss, accuracy, held-out evaluations, output sharpness, and
+paired affinity/local-curvature matrices. Gradient norms/cosines, PCGrad's
+aggregate curvature, sensitivity, and final loss-space searches no longer run.
+Their training options and `--loss-spaces` switches have been removed. Existing
+saved results and standalone analysis helpers remain available.
 
-Training measures a **directed task-affinity matrix every 100 completed
-optimizer steps**, at the post-update parameters, using the relative
-lookahead affinity from [TAG Equation (1), NeurIPS 2021](https://proceedings.neurips.cc/paper/2021/file/e77910ebb93b511588557806310f78f1-Paper.pdf).
-For source task `i`, let `g_i` be its mean-loss gradient across all trainable
-parameters, including positional embeddings. The hypothetical SGD step is
-`theta_i = theta - lr * g_i`, using the optimizer's **current** learning rate
-at each measurement. Gradient magnitudes are retained; there is no fixed
-movement radius. Each entry is `A[i,j] = 1 - L_j(theta_i) / L_j(theta)`:
-**positive means help, negative means harm**, as a relative loss reduction.
-For example, `+0.1` means a 10% reduction and `-0.1` a 10% increase in the
-target loss. Rows are source tasks and columns are target tasks. The diagonal
-measures the effect on the source itself; both directions are recorded.
-The diagnostic uses raw SGD gradients, without AdamW moments or weight
-decay; actual training still uses AdamW. If optimizer groups have different
-learning rates, each parameter uses its group's rate. Trainable parameters
-outside the optimizer stay fixed in the hypothetical step.
+Every `affinity_interval` completed updates (default `100`), both matrices are
+measured at the post-update model on the same fixed task probes. Rows are
+**source tasks** and columns are **target tasks**, including the diagonal.
+For source task `i`, the diagnostic applies a hypothetical SGD step
+`delta_i = -lr * grad L_i(theta)` to all trainable parameters, including
+positional embeddings. The learning rates are read from the optimizer's
+current parameter groups; trainable parameters outside the optimizer remain
+fixed. The diagnostic does not use AdamW moments or weight decay.
 
-W&B receives `affinity/matrix` as a labeled matrix table, and
-`affinity/<source>_to_<target>` as scalar histories. Duplicate function names
-get the same distinct suffixes as gradient metrics; unused selector codes
-are excluded. Tasks are measured without training-probability weighting.
-`affinity/baseline_loss/<task>`, `affinity/source_gradient_norm/<task>`,
-`affinity/source_valid/<task>`, and `affinity/target_valid/<task>` provide
-context. A nonfinite source gradient norm produces a NaN row and
-`source_valid=0`. Zero and tiny gradients are valid; a zero gradient gives a
-zero step. A nonpositive or nonfinite target baseline produces a NaN column
-and `target_valid=0`, because the relative score is undefined. Positive
-denominators are not clamped, so very small losses can give large relative
-scores. `affinity/learning_rate` logs a common rate; differing parameter rates
-are summarized by `affinity/learning_rate_min` and `affinity/learning_rate_max`.
+Affinity retains the relative TAG definition:
 
-Configure `affinity_interval` (default `100`, or `None` to disable),
-`affinity_num_inputs` (default `64`),
-`affinity_eval_batch_size` (default `256`), and `affinity_seed` in
-`training_config`. One uniform payload batch is sampled with a private seeded
-generator, then fixed across checkpoints and shared across selectors. The
-same inputs compute source gradients and measure target losses before and
-after the hypothetical steps, matching the paper's same-batch definition.
-We retain fixed probes and periodic snapshots for checkpoint comparisons,
-rather than measuring each newly sampled training batch or automatically
-averaging affinities into task groups. These diagnostic probes are not
-excluded from training and do not certify held-out generalization.
-
-Target forwards are batched across tasks to bound memory. At the eight-task
-defaults, a measurement uses eight source forward/backward passes and 18
-forward-only target batches of 256 examples, with no Hessian or space search.
-`affinity/compute_seconds` logs the measurement's runtime. The measure uses
-evaluation mode and functional parameter replacements; it preserves model
-parameters, buffers, existing gradients, optimizer state and module modes,
-and does not consume training randomness. It runs only when W&B logging is
-enabled; `task_affinity_metrics()` also works independently of W&B. Smoke
-tests measure it on each of their two steps with four probe inputs per task.
-
-Training also logs `curvature/multi_task`, the multi-task curvature from
-[PCGrad Definition 3](https://papers.neurips.cc/paper_files/paper/2020/file/3fe78a8acf5fda99de95303940a2420c-Paper.pdf):
-
-\[
-\mathcal H(L;\theta,\theta') = \int_0^1
-g^\top \nabla^2 L\bigl(\theta+a(\theta'-\theta)\bigr)g\,da,
-\qquad g=\nabla L(\theta),\quad L=\sum_i L_i.
-\]
-
-Here each `L_i` is a task's mean probe loss. The tasks are summed, not averaged
-or weighted by training probabilities, matching the paper's convention.
-Only valid selector tasks participate, with repeated functions kept separate.
-`theta` and `theta'` are the parameters immediately before and after the actual
-optimizer update at the logged step. The gradient `g` is evaluated before that
-step and held fixed throughout the integral; it is not replaced by AdamW's
-update direction. This uses the same fixed payloads as the gradient metrics,
-controlled by `gradient_num_inputs` and `gradient_seed`.
-
-`curvature_interval` defaults to `100`. `curvature_num_points` defaults to `3`
-and controls Gauss-Legendre quadrature over the step segment; increasing it
-improves the integral approximation at additional cost. The integrand uses
-autograd Hessian-vector products, including all trainable parameters and
-positional embeddings, without constructing the full Hessian. The measurement
-disables dropout and temporarily uses math attention for second derivatives,
-restoring the original training modes and attention backend settings afterward.
-It does not change parameters, existing gradients, or optimizer state.
-
-The reported value is signed and **not normalized by `||g||^2`**, as in
-Definition 3. Its scale depends on gradient magnitude and the number of tasks;
-it is zero when the total probe gradient is zero, even if the loss surface is
-curved. It measures total-loss curvature along the observed step, not a
-per-task forgetting score. Gradient norms, alignment, and sharpness describe
-the post-update model; curvature describes the transition into that model.
-Training-batch loss and accuracy use the pre-update predictions.
-
-## Task-loss tangent and sharpness directions
-
-These expensive diagnostics are **disabled by default**, including in cluster
-runs and smoke tests. To enable them, run `python test.py --loss-spaces`;
-`--no-loss-spaces` explicitly disables them. The setting is recorded in W&B as
-`train_space_enabled`. It controls the final tangent, sharpness, and pairwise
-overlap computations and their direction artifact.
-
-When enabled, the experiment measures these directions **once, after the final
-optimizer update**. In `train()`, set `space_enabled=True` and `space_delta` to a
-positive global parameter-vector norm (`0.02` in `test.py`).
-`space_epsilon` is the allowed increase in a task's mean loss (`0.002`, reduced
-from `0.01` by a factor of five to let more directions qualify as sharp).
-The mean loss uses the configured criterion on `space_num_inputs` fixed uniform
-payloads per task (`64` in `test.py`), with a private `space_seed`. All trainable
-parameters, including positional embeddings, participate. The measure preserves
-model parameters, existing gradients, optimizer state, module modes and training RNG.
-
-For a unit parameter direction `v`, define its harm to task `i` as
-`max(L_i(theta + delta*v), L_i(theta - delta*v)) - L_i(theta)`.
-Both perturbed losses are evaluated on the actual model. A tangent direction
-has harm at most `space_epsilon`; a sharpness direction has harm above it.
-Loss decreases are allowed. The check uses both signs so changing the sign of
-a reported direction does not change its classification.
-
-The implementation uses **matrix-free thick-restart block Lanczos**.
-`space_hvp_budget` is **10,000 Hessian-vector products
-per task**, shared by the tangent and sharpness calculations. For the eight
-tasks in `test.py`, this allows 80,000 HVPs in total for this final measure.
-If the complete parameter basis fits in the active window, the search stops
-once it has been covered. An enabled normal experiment uses 10,000;
-`--smoke-test --loss-spaces` uses 4. Other periodic curvature diagnostics have
-their own existing HVP cost.
-
-Each HVP differentiates the task's mean loss at the final model parameters.
-The gradient graph is reused within a task. Lanczos starts with task gradients
-and independent full-parameter random vectors, then repeatedly applies the
-Hessian to grow an adaptive Krylov space. The active window is bounded by
-`min(parameter_count, hvp_budget, max(512, 4 * block_size + task_count))`, where
-`block_size = max(direction_cap, task_count)`. At each thick restart, the lowest
-and highest `block_size` Ritz modes and independent task-gradient components
-are retained. Their cached Hessian images are transformed with them, and their
-residuals seed the next expansion. Each new HVP therefore improves the existing
-estimates. Two-pass reorthogonalization and random starts at breakdown handle
-numerical error and repeated eigenvalues. This follows the
-[thick-restart Lanczos approach](https://doi.org/10.1137/S0895479898334605).
-`space_direction_seed` controls a private RNG. A small projected Hessian is
-diagonalized; the full parameter-by-parameter Hessian is never constructed.
-The returned-direction cap (`space_num_directions=100`) is independent of the
-HVP budget. In the normal experiment, up to 512 Krylov vectors and their Hessian
-images are stored on the solver device, costing approximately 417 MB at 101,761 float32
-parameters, plus model, differentiation, retained directions and temporary
-workspace. On CUDA, this storage and the task gradients, orthogonalization,
-restarts, projected eigensystems, direction checks and interference algebra
-stay on the GPU. Hessian-vector products do not transfer full parameter vectors
-between CPU and GPU. Finished artifact tensors are copied to CPU for portable
-serialization; logged scalars and adaptive stopping checks still synchronize
-with the host. CPU and MPS models use CPU solver storage because the solver
-requires float64 algebra, which MPS does not support. The 10,000 products are
-spread across restart cycles; they do not require storing 10,000 vectors.
-Tasks reuse the solver storage. The artifact records `solver_device`.
-
-The private direction generator lives on the solver device and preserves the
-training RNG. A fixed seed is repeatable on the same backend; CPU and CUDA
-random starts need not match. Gradient norms, pairwise alignments, and periodic
-curvature reductions also stay on CUDA, exporting only their final metrics.
-
-For small perturbations the both-sign harm is approximated by
-`delta * abs(g_i.T @ v) + delta**2 / 2 * (v.T @ H_i @ v)`.
-Sharpness uses a sphere-constrained quadratic maximization in the Krylov space,
-including the gradient term. Each accepted vector is removed orthogonally
-before finding the next. When the gradient is zero, this selects the largest
-Hessian Ritz eigenvalues in descending order.
-
-Tangent candidates are the lowest-curvature eigenvectors in the portion of
-the Krylov space **orthogonal to the task loss gradient**, in ascending order.
-This enforces first-order loss tangency. At zero gradient the entire Krylov
-space is available. Negative curvature is allowed because loss decreases are
-allowed; the search uses the smallest eigenvalues, not the smallest absolute
-eigenvalues. Tangent and sharpness bases are independently orthonormal.
-
-Every candidate is validated with both actual perturbed losses. Each search
-stops at its first rejecting candidate, its direction cap, or exhaustion of
-its available Krylov directions. The eigenvalue/quadratic calculation proposes
-directions; it does not find exact minima or maxima of the nonlinear loss at
-finite delta. A failed candidate does not certify that no other safe or harmful
-direction exists, and 10,000 products do not guarantee eigenpair convergence.
-
-W&B logs `spaces/search_dim` and `spaces/parameter_count` (both the number of
-trainable parameters), `spaces/direction_cap`, and per-task
-`spaces/tangent_dim/<task>` / `spaces/sharpness_dim/<task>`. The dimensions count
-the independent accepted directions found, each capped at 100 by default.
-`spaces/tangent_cap_reached/<task>` / `spaces/sharpness_cap_reached/<task>` are
-1 when the relevant cap is reached; additional directions may exist. These
-counts do not certify the full spaces' dimensions. The searches are independent,
-so their counts need not add to the parameter count.
-`spaces/min_harm/<task>` and `spaces/max_harm/<task>` report the first search
-candidate's actual harm. When a search stops on a failed loss check,
-`spaces/tangent_stop_harm/<task>` or `spaces/sharpness_stop_harm/<task>` records
-the rejecting direction's harm. `spaces/<kind>_candidate_exhausted/<task>`
-records exhaustion of the available Krylov directions before reaching the cap.
-W&B also logs `spaces/hvp_budget`, `spaces/hvp_count/<task>`,
-`spaces/krylov_dim/<task>`, and `spaces/hvp_budget_exhausted/<task>`.
-The HVP count is the total number of operator calls across all cycles; the
-Krylov dimension is the final active basis size. `spaces/krylov_max_dim` records
-the storage bound, `spaces/lanczos_restarts/<task>` counts thick restart cycles,
-and `spaces/full_space_covered/<task>` is 1 only when a complete parameter basis
-was processed. These measures distinguish computation from active storage.
-`spaces/ritz_max_relative_residual/<task>` checks the first/last up to 100
-Hessian Ritz modes using cached Hessian images without extra HVPs. A small
-residual measures the eigen-equation error; it does not certify that the
-estimated eigenvalue is globally smallest or largest. Per-kind maximum
-residuals describe tangent projected eigenvectors and sharpness quadratic
-stationarity, respectively.
-
-For each ordered pair `source_to_target`, interference is the approximate
-intersection of source sharpness and target tangent directions. Principal-angle
-cosines at least `space_intersection_cosine` (`0.999`) propose directions;
-actual finite-radius loss checks retain only those that hurt the source above
-epsilon and leave the target within epsilon in both signs.
-`spaces/interference_dim/<source>_to_<target>` counts these verified directions
-in the discovered spans. A zero count does not rule out interference involving
-directions not discovered. Both task orders are reported.
-
-For each unordered pair `A_and_B`, same-kind overlaps also compare **sharpness
-with sharpness** and **tangent with tangent**. Orthonormalized bases and an SVD
-give the principal-angle cosines; values at least `space_intersection_cosine`
-count as approximate shared directions. Each exported unit direction is the
-normalized midpoint of the two aligned principal vectors, equally close to
-both spans. At cosine 1 this is an exact common direction. These calculations
-use no additional HVPs and run once, at the end of training.
-
-W&B logs `spaces/<kind>_overlap_dim/<A>_and_<B>` for this geometric dimension,
-`spaces/<kind>_overlap_max_cosine/<A>_and_<B>` for the closest alignment when
-both spans are nonempty, and `spaces/<kind>_overlap_verified_dim/<A>_and_<B>`
-for the shared directions passing actual finite-radius loss checks on both
-tasks. Tangent checks require both signs to stay within epsilon for both tasks;
-sharpness checks require worst-sign harm above epsilon for each task. The
-harmful sign can differ between tasks. Since rotating a basis can change
-nonlinear loss behavior, geometric and loss-verified counts are kept separate.
-
-The final W&B `loss-spaces` artifact, aliased by its training step, contains
-parameter names and shapes, full task and interference direction vectors,
-baselines, loss changes for both signs, task gradients, probe payloads, cap
-flags, HVP counts, Ritz eigenvalues and residual diagnostics. Each direction
-matrix has one row per trainable
-parameter coordinate and one column per found unit direction. Multiply a
-column by delta, then split and reshape in `parameter_names` / `parameter_shapes`
-order to obtain the parameter perturbation. Artifact formats 4 and 5 record
-full vectors directly; no reduced search basis is required. The stored
-loss-change columns correspond to `+delta` and `-delta` in that order.
-`<kind>_curvatures` stores `v.T @ H_i @ v`; `<kind>_predicted_harms` stores the
-second-order approximation. Tangent residuals use the gradient-projected
-Hessian; sharpness residuals use the quadratic objective projected off earlier
-sharpness directions. Individual directions are checked, but nonlinear loss can behave
-differently along combinations of them.
-Format 5 also stores `overlaps["sharpness"]` and `overlaps["tangent"]`, with one
-entry per unordered pair. Entries contain the task names, shared direction
-matrix, retained cosines, all principal cosines, `loss_changes_a` /
-`loss_changes_b` (columns +delta then -delta), and a per-direction
-`loss_verified` boolean mask. `directions` contains the geometric basis;
-select its columns using that mask to get the directions passing joint loss
-checks. Training artifacts include their W&B run ID.
-
-### Readable reports from a saved run
-
-Generate a task summary, a pairwise interference matrix, and numerical-quality
-tables from the local W&B summaries:
-
-```bash
-env/bin/python scripts/summarize_spaces.py unzipped_results \
-  --output-dir results/spaces_report
+```text
+A[i,j] = (L_j(theta) - L_j(theta + delta_i)) / L_j(theta)
 ```
 
-Pass either an extracted results directory or a specific `wandb-summary.json`.
-Directories are searched recursively, with one report per run. The script
-reads the saved `config.yaml` using the project's existing environment and
-preserves the original measurements. No training or W&B connection is needed.
+Positive affinity means help and negative affinity means harm. For example,
+`+0.1` means the target loss decreased by 10%. This is the lookahead definition
+from [TAG Equation (1)](https://proceedings.neurips.cc/paper/2021/file/e77910ebb93b511588557806310f78f1-Paper.pdf).
 
-Reports also include symmetric sharpness–sharpness and tangent–tangent matrices,
-pair details, and maximum alignment cosines. Older runs need their full
-`loss-spaces` artifact to calculate these overlaps. Put its `spaces_step_*.pt`
-file in `results/space_artifacts/<run-id>/` and rerun the same command, or select
-it explicitly for one run:
+The new matrix is the **forward-step curvature contribution**, in loss units:
 
-```bash
-env/bin/python scripts/summarize_spaces.py path/to/wandb-summary.json \
-  --directions-artifact path/to/spaces_step_10000.pt
+```text
+R[i,j] = L_j(theta + delta_i) - L_j(theta) - grad L_j(theta).T @ delta_i
+R[i,j] ≈ 0.5 * delta_i.T @ Hessian(L_j)(theta) @ delta_i
 ```
 
-The artifacts downloaded for the existing `y9er89ad` and `wgrcwba5` reports are
-cached under `results/space_artifacts/` (excluded from Git). Backfilling uses only
-saved parameter directions; it does not rerun Hessian computations. New joint
-loss checks cannot be reconstructed without the trained model and remain
-missing for older artifacts.
+Positive `R` means the step performed worse than its first-order prediction;
+negative `R` means it performed better. Positive affinity and positive `R`
+can coexist when the linear benefit exceeds the curvature penalty. This is a
+finite-step residual, including higher-order effects, not a Hessian eigenvalue
+or curvature per unit distance. It scales approximately quadratically with
+step length locally. It is **not divided by the target loss**; to compare its
+contribution in affinity units use `-R[i,j] / L_j(theta)`. The probe baseline is
+used internally and is not logged; training/evaluation losses use other batches.
 
-Open `results/spaces_report/index.html`, or a run's `report.html` / `report.md`.
-Each run also gets `task_summary.csv`, `interference_matrix.csv`,
-`interference_pairs.csv`, `numerical_quality.csv`, and `metrics.csv`.
-The last CSV preserves every original `spaces/` value with a group and an
-explanation. `report.json` retains the grouped data with full numeric precision.
-Same-kind overlaps also get `<kind>_overlap_pairs.csv` and
-`<kind>_overlap_matrix.csv`. When an artifact is supplied, `overlap_directions.pt`
-exports the actual vectors and parameter layout; `overlap_directions.csv`
-maps direction IDs to `overlaps[vector_kind][vector_pair]["directions"][:, vector_column]`.
-Columns are zero-based. An empty direction table means no principal cosine
-passed the threshold. Original `metrics.csv` values are preserved exactly;
-backfilled counts live in the separate overlap tables.
+Only these matrix entries and tables are logged:
 
-The interference matrix uses **safe tasks as rows and harmed tasks as columns**:
-row A / column B reads the original `B_to_A` metric. Capped counts are marked
-explicitly. Missing measurements stay missing, and zero overlap is interpreted
-only within the selected direction bases.
+- `affinity/<source>_to_<target>` and `affinity/matrix`
+- `local_curvature/<source>_to_<target>` and `local_curvature/matrix`
 
-Training logs Hahn–Rofin average direction sharpness every 100 completed
-optimizer steps. The estimate is the mean squared change in model predictions
-after adding independent zero-mean Gaussian noise with standard deviation
-`sharpness_rho` (default `0.02`) to each non-positional model parameter.
-Gaussian noise here replaces the fixed-radius sphere used in the paper.
+No affinity timing, learning-rate, baseline-loss, gradient-norm, or validity
+series are emitted. Duplicate task names receive distinct suffixes. Zero source
+gradients/rates give zero displacements and zero residuals. A zero target loss
+makes relative affinity undefined, but its curvature residual can still be
+measured. Undefined values remain NaN (JSON null in local arithmetic results).
 
-`sharpness_num_inputs` (default `32`) controls the number of uniformly sampled
-payloads per selector code; `sharpness_num_perturbations` (default `4`)
-controls the number of noise draws. Sharpness uses the fixed input length
-`max_len`. Each function's value conditions on its selector code, while the
-overall value averages equally over all selector codes. Unused codes are
-included in `sharpness/invalid_selectors`, so the overall value represents
-uniform sampling over the entire binary input space. Training selector
-probabilities do not affect this measurement.
+Set `affinity_interval=None` to disable both matrices. `affinity_num_inputs`
+(default `64`), `affinity_eval_batch_size` (default `256`), and `affinity_seed`
+control their shared probe. The same inputs compute all gradients and losses;
+these probes are not excluded from training and do not certify generalization.
+The existing task gradients also supply every linear prediction, so there are
+no additional backward passes, opposite-direction evaluations, or Hessian
+computations for `R`. Functional probe parameters and floating buffers use
+float64 to reduce cancellation in small residuals (CPU fallback on MPS).
+The training model's dtype, parameters, buffers, gradients, modes, optimizer
+state, and RNG are preserved. All task gradients are held during the measurement.
+
+Boolean diagnostics run when a W&B logger is supplied. Arithmetic diagnostics
+also work without W&B and write pairwise scalar histories to `metrics.jsonl`.
+Smoke tests measure both matrices at each of two training steps.
+
+## Output sharpness
+
+Training logs average direction sharpness every 100 completed optimizer steps.
+It estimates the mean squared change in predictions after independent Gaussian
+noise with standard deviation `sharpness_rho` (default `0.02`) is added to each
+non-positional parameter. This is output sensitivity, not a loss Hessian
+measurement. In particular, `rho` is a per-coordinate standard deviation,
+not the total parameter displacement length.
+
+`sharpness_num_inputs` (default `32`) sets the uniform payload sample count;
+`sharpness_num_perturbations` (default `4`) sets the number of noise draws.
+Boolean sharpness uses `max_len` and averages over all selector codes, including
+unused codes (also reported as `sharpness/invalid_selectors`). Arithmetic
+sharpness averages squared token-probability changes over vocabulary, valid
+answer positions, examples and tasks. Training selector probabilities do not
+weight these diagnostics. The Boolean and arithmetic output scales differ.
+
+Historical loss-space results can still be read without training or a W&B
+connection using `env/bin/python scripts/summarize_spaces.py --help`. Those
+standalone helpers do not participate in the current training diagnostics.
 
 ## Run on the HTCondor cluster
 
@@ -636,10 +385,10 @@ On the submission host, with the W&B credentials configured above:
 bash submit.sh
 ```
 
-This runs `test_arithmetic.py --steps 30000 --payload-len 4 --grouped-selectors --no-loss-spaces`
+This runs `test_arithmetic.py --steps 30000 --payload-len 4 --grouped-selectors`
 with all seven arithmetic tasks. It performs 30,000 optimizer updates with the
 full model (width 64, four layers) and batches of 320, with periodic held-out
-evaluation, gradient, affinity, curvature, and scalar sharpness diagnostics.
+evaluation, affinity, local curvature, and scalar sharpness diagnostics.
 Tangent and sharpness loss-space searches are disabled. It uses
 the existing container and GPU allocation from `test.sub`; no image rebuild is
 needed. W&B defaults to the project
@@ -680,14 +429,14 @@ defaults can overwrite them. To opt into a two-step smoke test with the small
 model instead of the full experiment:
 
 ```bash
-bash submit.sh -append 'experiment_args=--smoke-test --grouped-selectors --no-loss-spaces'
+bash submit.sh -append 'experiment_args=--smoke-test --grouped-selectors'
 ```
 
 For a local check without submitting or using W&B:
 
 ```bash
 env/bin/python test_arithmetic.py --smoke-test --no-wandb --device cpu \
-  --grouped-selectors --no-loss-spaces
+  --grouped-selectors
 ```
 
 ### Sweep arithmetic model and batch hyperparameters
@@ -707,8 +456,8 @@ updates with seed 7, AdamW learning rate `1e-4` and weight decay `1e-2`. All sev
 tasks are sampled equally. Every prompt has two selector digits and four payload
 digits; both unary digit tasks consume all four payload digits. The held-out
 evaluation set uses the same seed and 320 inputs per task for every configuration.
-Larger batches see more training examples at the fixed step count. Scalar
-diagnostics remain enabled; tangent and sharpness space searches remain disabled.
+Larger batches see more training examples at the fixed step count. Each run
+records the retained loss, accuracy, evaluation, sharpness and paired matrices.
 
 Copy the new sweep files and the updated `test_arithmetic.py`, `src/`,
 `submit-wandb.sh`, and `run-test.sh` to the submission host using the copy command
@@ -768,18 +517,10 @@ WANDB_PROJECT='multiple tasks sharpness' bash submit-wandb.sh \
 ```
 
 The wrapper creates log/result directories and loads credentials. The smoke
-test performs two optimizer updates, evaluation, gradient, curvature, and
-sharpness diagnostics. Add `--loss-spaces` to also check a small final loss-space
-search and W&B artifact:
-
-```bash
-WANDB_PROJECT='multiple tasks sharpness' bash submit-wandb.sh \
-  -append 'experiment_args=--smoke-test --loss-spaces'
-```
-
-It retains the full model and eight tasks but reduces sample counts and search
-settings. Its W&B config records `smoke_test=true`; its measurements are only
-for validating the pipeline.
+test performs two optimizer updates, evaluation, affinity, local curvature,
+and sharpness diagnostics. It retains the full Boolean model and eight tasks
+but reduces probe sizes. Its W&B config records `smoke_test=true`; these
+measurements validate the pipeline.
 
 Use the cluster ID printed by submission:
 
@@ -791,7 +532,7 @@ cat /scratch/gtomas/logs/sharpness_experiments/test.JOB_ID.log
 ```
 
 Verify the CUDA device and GPU name in stdout, the W&B run URL, exit code 0,
-and the metrics in W&B (also the `loss-spaces` artifact if enabled). W&B emits normal status
+and the retained metrics in W&B. W&B emits normal status
 messages to stderr, so a nonempty `.err` file is not itself a failure. If held,
 inspect `condor_q JOB_ID -hold`. If idle for a long time, use
 `condor_q JOB_ID -better-analyze` to inspect resource matching.
@@ -804,20 +545,14 @@ WANDB_PROJECT='multiple tasks sharpness' bash submit-wandb.sh
 
 `test.sub` starts one job with one GPU, two CPUs, 8 GB of host RAM, and 4 GB of
 job disk. Host RAM does not reserve GPU memory. These are starting allocations;
-adjust after observing the smoke/full run. To enable the final direction searches
-in a full run, pass `-append 'experiment_args=--loss-spaces'` to the submission wrapper.
-These searches can take substantial time after training. Check cluster runtime limits before the
-full run. The default experiment has no model checkpoints or resume mechanism;
-an evicted job starts training again.
+adjust after observing the smoke/full run. Check cluster runtime limits before
+starting a full run. The default Boolean experiment has no model checkpoints
+or resume mechanism; an evicted job starts training again.
 
 The runner sets numerical-library thread limits from `request_cpus`, including
 OpenBLAS and PyTorch's independent interop pool. Startup prints the effective
-thread counts. During the final loss-space measurement, stdout and
-`results/diagnostic-progress.jsonl` record task/stage, HVP counts every 500
-products, restart counts, Python-process RSS/CPU usage, and CUDA allocated,
-reserved and peak memory. These records distinguish a slow computation from a
-failure in eigendecomposition, direction checks, serialization or W&B shutdown.
-The process memory fields describe Python, not every process in the Condor job.
+thread counts. Run completion and failure events are written to
+`results/diagnostic-progress.jsonl` when a results directory is configured.
 Native Python fault tracebacks are enabled; Python exceptions are printed before
 attempting W&B shutdown. An uncatchable kill can still prevent these tracebacks.
 

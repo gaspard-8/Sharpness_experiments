@@ -1,7 +1,7 @@
 """Reusable metrics for boolean-function experiments."""
 
 from collections import Counter, defaultdict
-from time import perf_counter
+from copy import deepcopy
 from typing import Dict, Iterable, Optional, Union
 
 from numpy.polynomial.legendre import leggauss
@@ -131,12 +131,6 @@ def batch_metrics(
             total_correct += correct_count
             total_accuracy_examples += example_count
 
-    invalid_mask = function_ids >= len(function.functions)
-    if invalid_mask.any():
-        metrics["selectors/invalid_rate"] = float(
-            invalid_mask.float().mean().detach().cpu()
-        )
-
     if total_accuracy_examples:
         metrics["accuracy"] = total_correct / total_accuracy_examples
     return metrics
@@ -228,9 +222,14 @@ def task_affinity_metrics(
     learning_rate: Union[float, Dict[str, float]] = 1e-4,
     eval_batch_size: int = 256,
 ) -> Dict[str, float]:
-    """Measure the relative lookahead affinity of TAG, Equation (1).
+    """Measure affinity and the forward-step curvature contribution together.
 
     A[i,j] = 1 - L_j(theta - learning_rate * g_i) / L_j(theta).
+    R[i,j] = L_j(theta + delta_i) - L_j(theta) - g_j.T @ delta_i,
+    where delta_i = -learning_rate * g_i (with per-parameter rates allowed).
+    R is in loss units: positive means the step does worse than its linear
+    prediction. For small steps R ~ delta_i.T @ H_j @ delta_i / 2; it is
+    neither divided by the step norm nor normalized by the target loss.
     Positive affinity means help; negative means harm. Source gradients and
     both target losses use the same payload batch, as in the paper. All
     valid tasks (including duplicates and the diagonal) participate without
@@ -238,14 +237,15 @@ def task_affinity_metrics(
     A scalar learning rate applies to every parameter; a name-to-rate mapping
     supports optimizer groups and must cover all trainable parameters. This
     is an SGD lookahead, without gradient normalization or AdamW moments.
-    A nonfinite source gradient produces a NaN row and source_valid=0. Zero
-    gradients are valid zero steps. A nonpositive/nonfinite target baseline
-    produces a NaN column and target_valid=0; denominators are not clamped.
+    Nonfinite source gradients produce NaN rows. Zero gradients are valid
+    zero steps. Nonpositive/nonfinite target losses give NaN affinity columns;
+    R remains defined at zero target loss if its gradient is finite.
 
-    Target forwards are batched across tasks with no backward pass or Hessian
-    computation. Functional parameter replacements avoid changing the model,
-    existing gradients, or optimizer state. Buffers are cloned, dropout is
-    disabled, and all module modes are restored, including on failure.
+    All task gradients are reused for the linear predictions, without extra
+    backward passes or Hessian computations. Probe arithmetic uses float64
+    to resolve the small second-order residual (CPU fallback on MPS).
+    Functional replacements preserve parameters, buffers, existing gradients,
+    optimizer state and modes. Only the two matrices' pairwise entries return.
     """
     if payloads.ndim != 2 or min(payloads.shape) < 1:
         raise ValueError("payloads must be a nonempty 2D batch.")
@@ -280,10 +280,18 @@ def task_affinity_metrics(
 
     evaluation_inputs = t.cat([
         task_inputs(code, payloads) for code in range(len(functions))
-    ])
-    evaluation_labels = [selected_function(payloads) for selected_function in functions]
-    base = {name: parameter.detach() for name, parameter in parameters.items()}
-    buffers = {name: buffer.detach().clone() for name, buffer in model.named_buffers()}
+    ]).to(compute_device)
+    evaluation_labels = [selected_function(payloads).to(compute_device) for selected_function in functions]
+
+    def probe_copy(value: t.Tensor) -> t.Tensor:
+        dtype = t.float64 if value.is_floating_point() else value.dtype
+        return value.detach().to(device=compute_device, dtype=dtype).clone()
+
+    base = {name: probe_copy(parameter).requires_grad_(parameter.requires_grad)
+            for name, parameter in parameters.items()}
+    buffers = {name: probe_copy(buffer) for name, buffer in model.named_buffers()}
+    variables = tuple(base[name] for name in trainable)
+    probe_criterion = deepcopy(criterion).to(device=compute_device, dtype=t.float64)
 
     def target_losses(point: Dict[str, t.Tensor]) -> t.Tensor:
         with t.no_grad():
@@ -292,64 +300,66 @@ def task_affinity_metrics(
                 for batch in evaluation_inputs.split(eval_batch_size)
             ]).split(payloads.size(0))
             return t.stack([
-                _mean_loss(criterion, outputs, labels)
+                _mean_loss(probe_criterion, outputs, labels)
                 for outputs, labels in zip(predictions, evaluation_labels)
             ])
 
     modes = [(module, module.training) for module in model.modules()]
-    started = perf_counter()
     model.eval()
-    norms, rows, valid_sources = [], [], []
+    task_gradients, baselines = [], []
     try:
-        baseline = target_losses(base)
-        valid_targets = t.isfinite(baseline) & (baseline > 0)
-        denominators = t.where(valid_targets, baseline, t.ones_like(baseline))
-        for code, selected_function in enumerate(functions):
+        for code, inputs in enumerate(evaluation_inputs.split(payloads.size(0))):
             with t.enable_grad():
-                outputs = functional_call(model, (parameters, buffers),
-                                          (task_inputs(code, payloads),))
-                loss = _mean_loss(criterion, outputs, evaluation_labels[code])
-                gradients = (t.autograd.grad(loss, tuple(trainable.values()), allow_unused=True)
-                             if loss.requires_grad else [None] * len(trainable))
-            gradients = [gradient.detach() if gradient is not None else t.zeros_like(parameter)
-                         for gradient, parameter in zip(gradients, trainable.values())]
-            # Reduce in float64 on CUDA/CPU. MPS transfers before casting.
-            norm = t.sqrt(sum(t.sum(gradient.to(compute_device).double().square())
-                              for gradient in gradients))
-            valid = bool(t.isfinite(norm))
-            norms.append(norm)
-            valid_sources.append(valid)
+                outputs = functional_call(model, (base, buffers), (inputs,))
+                loss = _mean_loss(probe_criterion, outputs, evaluation_labels[code])
+                gradients = (t.autograd.grad(loss, variables, allow_unused=True)
+                             if loss.requires_grad else [None] * len(variables))
+            baselines.append(loss.detach())
+            task_gradients.append([
+                gradient.detach() if gradient is not None else t.zeros_like(parameter)
+                for gradient, parameter in zip(gradients, variables)
+            ])
+        baseline = t.stack(baselines)
+        valid_gradients = [bool(t.stack([t.isfinite(g).all() for g in gradients]).all())
+                           for gradients in task_gradients]
+        valid_targets = t.isfinite(baseline) & (baseline > 0)
+        valid_curvature_targets = t.isfinite(baseline) & t.tensor(valid_gradients, device=compute_device)
+        denominators = t.where(valid_targets, baseline, t.ones_like(baseline))
+        rows, curvature_rows = [], []
+        for valid, gradients in zip(valid_gradients, task_gradients):
             if not valid:
                 rows.append(t.full_like(baseline, float("nan")))
+                curvature_rows.append(t.full_like(baseline, float("nan")))
                 continue
             with t.no_grad():
                 point = dict(base)
-                for (name, parameter), gradient in zip(trainable.items(), gradients):
+                for name, gradient in zip(trainable, gradients):
                     point[name] = base[name] - rates[name] * gradient
-                # This is algebraically 1 - after/before, with less rounding
-                # cancellation for the small learning rates used in training.
-                relative_reduction = (baseline - target_losses(point)) / denominators
-                rows.append(t.where(valid_targets, relative_reduction,
+                # Use the represented displacement, including floating-point
+                # rounding, so the loss change and linear term refer to one step.
+                delta = [point[name] - base[name] for name in trainable]
+                moved = any(bool(d.any()) for d in delta)
+                change = target_losses(point) - baseline if moved else t.zeros_like(baseline)
+                linear = t.stack([
+                    sum((g * d).sum() for g, d in zip(target_gradient, delta))
+                    for target_gradient in task_gradients
+                ])
+                residual = change - linear
+                curvature_rows.append(t.where(valid_curvature_targets & t.isfinite(residual), residual,
+                                              t.full_like(baseline, float("nan"))))
+                rows.append(t.where(valid_targets, -change / denominators,
                                     t.full_like(baseline, float("nan"))))
         matrix = t.stack(rows).cpu()
-        baseline, norms, valid_targets = baseline.cpu(), t.stack(norms).cpu(), valid_targets.cpu()
+        curvature_matrix = t.stack(curvature_rows).cpu()
     finally:
         for module, was_training in modes:
             module.training = was_training
 
-    metrics = {"affinity/compute_seconds": perf_counter() - started}
-    if len(set(rates.values())) == 1:
-        metrics["affinity/learning_rate"] = next(iter(rates.values()))
-    else:
-        metrics["affinity/learning_rate_min"] = min(rates.values())
-        metrics["affinity/learning_rate_max"] = max(rates.values())
+    metrics = {}
     for i, source in enumerate(names):
-        metrics[f"affinity/baseline_loss/{source}"] = float(baseline[i])
-        metrics[f"affinity/source_gradient_norm/{source}"] = float(norms[i])
-        metrics[f"affinity/source_valid/{source}"] = float(valid_sources[i])
-        metrics[f"affinity/target_valid/{source}"] = float(valid_targets[i])
         for j, target in enumerate(names):
             metrics[f"affinity/{source}_to_{target}"] = float(matrix[i, j])
+            metrics[f"local_curvature/{source}_to_{target}"] = float(curvature_matrix[i, j])
     return metrics
 
 

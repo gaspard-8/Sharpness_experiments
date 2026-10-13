@@ -1,6 +1,4 @@
-import tempfile
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import torch as t
 
@@ -8,13 +6,11 @@ from src.evaluation import EvaluationSet, evaluate_fixed_set, make_evaluation_se
 from src.functions import BoolFunction, SelectorFunction
 from src.metrics import (
     _unique_metric_names, average_direction_sharpness, batch_metrics,
-    gradient_metrics, multi_task_curvature, task_affinity_metrics,
+    task_affinity_metrics,
 )
 from src.model import TransformerModel
-from src.spaces import loss_spaces
 
 
-BatchMetricFn = Callable[[t.Tensor, t.Tensor, t.Tensor], Dict[str, float]]
 SelectorProbabilities = Union[Sequence[float], t.Tensor]
 
 
@@ -158,32 +154,16 @@ def train(
     num_steps: int = 1000,
     device: t.device = t.device("cpu"),
     wandb_run: Any = None,
-    batch_metric_fn: Optional[BatchMetricFn] = None,
     balanced_selectors: bool = False,
     selector_probabilities: Optional[SelectorProbabilities] = None,
     sharpness_interval: int = 100,
     sharpness_num_inputs: int = 32,
     sharpness_num_perturbations: int = 4,
     sharpness_rho: float = 0.02,
-    gradient_interval: int = 20,
-    gradient_num_inputs: int = 256,
-    gradient_seed: int = 0,
-    curvature_interval: int = 100,
-    curvature_num_points: int = 3,
     eval_interval: Optional[int] = None,
     eval_num_inputs_per_function: int = 320,
     eval_batch_size: int = 320,
     eval_seed: int = 0,
-    space_delta: Optional[float] = None,
-    space_epsilon: float = 0.002,
-    space_num_inputs: int = 16,
-    space_seed: int = 0,
-    space_num_directions: int = 100,
-    space_direction_seed: int = 0,
-    space_hvp_budget: int = 10_000,
-    space_intersection_cosine: float = 0.999,
-    space_progress: Optional[Callable[[Dict[str, Any]], None]] = None,
-    space_enabled: bool = False,
     affinity_interval: Optional[int] = 100,
     affinity_num_inputs: int = 64,
     affinity_eval_batch_size: int = 256,
@@ -195,14 +175,9 @@ def train(
     W&B. When supplied, W&B automatically receives overall loss and accuracy.
     For a ``SelectorFunction``, it also receives a per-function loss and
     accuracy using each selected function's ``metric_name``.
-    ``batch_metric_fn`` can add experiment-specific metrics to those defaults.
     ``selector_probabilities`` is passed to ``sample_batch`` for selector tasks.
     When logging, average direction sharpness is estimated every
     ``sharpness_interval`` optimizer updates using uniform input bits.
-    Gradient norms and pairwise cosines are measured every ``gradient_interval``
-    updates on ``gradient_num_inputs`` fixed uniform payloads at ``max_len``.
-    A separate generator seeded with ``gradient_seed`` keeps probe sampling
-    independent of training randomness. Measurements only run when logging.
     Directed task affinities are measured every ``affinity_interval`` updates
     (default 100; None disables them), using TAG's relative loss reduction
     after an SGD lookahead step scaled by the optimizer's current learning
@@ -213,24 +188,14 @@ def train(
     ``affinity_num_inputs`` controls the probe size; target forwards are
     capped at ``affinity_eval_batch_size`` examples. These uniform probes are
     not reserved from training and do not certify held-out generalization.
-    PCGrad multi-task curvature is measured every ``curvature_interval`` steps
-    along that optimizer update using ``curvature_num_points`` quadrature
-    points. It uses the same fixed payloads and the sum of task mean losses.
+    The same probe computes ``local_curvature``: the observed target loss
+    change minus its first-order prediction, in loss units. Both matrices
+    have source rows and target columns; only their pairwise entries log.
     Set ``eval_interval`` to reserve a fixed, balanced set at ``max_len`` and
     log post-update ``eval/loss`` and ``eval/accuracy`` (also per task).
     Reserved inputs are excluded from training even without a W&B logger.
     Evaluation uses ``no_grad()``, restores model modes, and runs only when
     logging. Its private seed does not consume training randomness.
-    Task-loss spaces are disabled by default. Set ``space_enabled=True`` and
-    a positive ``space_delta`` to measure them after the final update.
-    Matrix-free thick-restart block Lanczos uses ``space_hvp_budget`` products
-    per task, shared between sharpness and gradient-orthogonal tangent modes.
-    Its active basis is bounded while eigenvector estimates survive restarts.
-    Every returned direction passes both-sign finite-radius loss checks.
-    ``space_num_directions`` caps the number returned for each task and each
-    kind; it does not restrict the search to a parameter subspace. Full vectors
-    and both-sign loss changes are saved as W&B artifacts. The reusable helper
-    leaves this costly measure disabled by default.
     """
 
     if num_steps < 1:
@@ -241,12 +206,6 @@ def train(
         raise ValueError("sharpness sample counts must be positive.")
     if not 0 <= sharpness_rho < float("inf"):
         raise ValueError("sharpness_rho must be finite and nonnegative.")
-    if gradient_interval < 1 or gradient_num_inputs < 1:
-        raise ValueError("gradient_interval and gradient_num_inputs must be positive.")
-    if not isinstance(curvature_interval, int) or isinstance(curvature_interval, bool) or curvature_interval < 1:
-        raise ValueError("curvature_interval must be a positive integer.")
-    if not isinstance(curvature_num_points, int) or isinstance(curvature_num_points, bool) or curvature_num_points < 1:
-        raise ValueError("curvature_num_points must be a positive integer.")
     if eval_interval is not None:
         if not isinstance(eval_interval, int) or isinstance(eval_interval, bool) or eval_interval < 1:
             raise ValueError("eval_interval must be a positive integer or None.")
@@ -259,34 +218,11 @@ def train(
                              ("affinity_eval_batch_size", affinity_eval_batch_size)):
             if not isinstance(value, int) or isinstance(value, bool) or value < 1:
                 raise ValueError(f"{label} must be a positive integer.")
-    if not isinstance(space_enabled, bool):
-        raise ValueError("space_enabled must be a boolean.")
-    if space_enabled:
-        if space_delta is None or not 0 < space_delta < float("inf") or not 0 <= space_epsilon < float("inf"):
-            raise ValueError("space_delta must be positive and space_epsilon nonnegative; both finite.")
-        if not isinstance(space_num_inputs, int) or isinstance(space_num_inputs, bool) or space_num_inputs < 1:
-            raise ValueError("space_num_inputs must be a positive integer.")
-        if not isinstance(space_num_directions, int) or isinstance(space_num_directions, bool) or space_num_directions < 1:
-            raise ValueError("space_num_directions must be a positive integer.")
-        if not isinstance(space_hvp_budget, int) or isinstance(space_hvp_budget, bool) or space_hvp_budget < 1:
-            raise ValueError("space_hvp_budget must be a positive integer.")
-        if not 0 < space_intersection_cosine <= 1:
-            raise ValueError("space_intersection_cosine must be in (0, 1].")
     evaluation_set = None
     if eval_interval is not None:
         evaluation_set = make_evaluation_set(
             function, max_len, eval_num_inputs_per_function, eval_seed, device,
         )
-
-    gradient_payloads = None
-    if wandb_run is not None and num_steps >= min(gradient_interval, curvature_interval):
-        selector_size = function.selector_size if isinstance(function, SelectorFunction) else 0
-        if max_len <= selector_size:
-            raise ValueError("Gradient inputs need at least one payload token.")
-        generator = t.Generator(device="cpu").manual_seed(gradient_seed)
-        gradient_payloads = t.randint(
-            0, 2, (gradient_num_inputs, max_len - selector_size), generator=generator,
-        ).to(device)
 
     affinity_payloads = None
     if wandb_run is not None and affinity_interval is not None and num_steps >= affinity_interval:
@@ -296,16 +232,6 @@ def train(
         generator = t.Generator(device="cpu").manual_seed(affinity_seed)
         affinity_payloads = t.randint(
             0, 2, (affinity_num_inputs, max_len - selector_size), generator=generator,
-        ).to(device)
-
-    space_payloads = None
-    if wandb_run is not None and space_enabled:
-        selector_size = function.selector_size if isinstance(function, SelectorFunction) else 0
-        if max_len <= selector_size:
-            raise ValueError("Space inputs need at least one payload token.")
-        generator = t.Generator(device="cpu").manual_seed(space_seed)
-        space_payloads = t.randint(
-            0, 2, (space_num_inputs, max_len - selector_size), generator=generator,
         ).to(device)
 
     model.train()
@@ -326,28 +252,18 @@ def train(
 
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
-        measure_curvature = wandb_run is not None and (step + 1) % curvature_interval == 0
-        if measure_curvature:
-            parameters_before = {
-                name: parameter.detach().clone()
-                for name, parameter in model.named_parameters() if parameter.requires_grad
-            }
         optimizer.step()
 
         loss_value = float(loss.detach().cpu())
         losses.append(loss_value)
         if wandb_run is not None:
             metrics = batch_metrics(function, criterion, x, outputs.detach(), y)
-            if batch_metric_fn is not None:
-                metrics.update(batch_metric_fn(x, outputs.detach(), y))
             if evaluation_set is not None and (step + 1) % eval_interval == 0:
                 metrics.update({
                     f"eval/{name}": value for name, value in evaluate_fixed_set(
                         model, function, criterion, evaluation_set, eval_batch_size,
                     ).items()
                 })
-            if (step + 1) % gradient_interval == 0:
-                metrics.update(gradient_metrics(model, function, criterion, gradient_payloads))
             if affinity_payloads is not None and (step + 1) % affinity_interval == 0:
                 optimizer_rates = {
                     id(parameter): float(group["lr"])
@@ -364,16 +280,12 @@ def train(
 
                 functions = function.functions if isinstance(function, SelectorFunction) else [function]
                 names = _unique_metric_names(functions)
-                metrics["affinity/matrix"] = wandb.Table(
-                    columns=["source / target", *names],
-                    data=[[source, *[affinity[f"affinity/{source}_to_{target}"]
-                                     for target in names]] for source in names],
-                )
-            if measure_curvature:
-                metrics.update(multi_task_curvature(
-                    model, function, criterion, gradient_payloads,
-                    parameters_before, num_points=curvature_num_points,
-                ))
+                for kind in ("affinity", "local_curvature"):
+                    metrics[f"{kind}/matrix"] = wandb.Table(
+                        columns=["source / target", *names],
+                        data=[[source, *[affinity[f"{kind}/{source}_to_{target}"]
+                                         for target in names]] for source in names],
+                    )
             if (step + 1) % sharpness_interval == 0:
                 metrics.update(
                     average_direction_sharpness(
@@ -386,46 +298,6 @@ def train(
                         device=device,
                     )
                 )
-            if space_payloads is not None and step + 1 == num_steps:
-                space_metrics, directions = loss_spaces(
-                    model, function, criterion, space_payloads, delta=space_delta,
-                    epsilon=space_epsilon,
-                    num_directions=space_num_directions,
-                    direction_seed=space_direction_seed,
-                    hvp_budget=space_hvp_budget,
-                    intersection_cosine=space_intersection_cosine,
-                    progress=space_progress,
-                )
-                metrics.update(space_metrics)
-                if hasattr(wandb_run, "log_artifact"):
-                    import wandb
-
-                    artifact = wandb.Artifact(
-                        f"loss-spaces-{wandb_run.id}", type="loss-spaces",
-                        metadata={"step": step + 1, "delta": space_delta,
-                                  "epsilon": space_epsilon,
-                                  "num_directions": space_num_directions,
-                                  "num_inputs": space_num_inputs,
-                                  "hvp_budget": space_hvp_budget,
-                                  "method": "matrix_free_thick_restart_block_lanczos_loss_spaces",
-                                  "krylov_max_dim": directions.get("krylov_max_dim"),
-                                  "format_version": directions.get("format_version"),
-                                  "overlap_kinds": ["sharpness", "tangent"],
-                                  "search_scope": "all_trainable_parameters",
-                                  "intersection_cosine": space_intersection_cosine},
-                    )
-                    with tempfile.TemporaryDirectory(prefix="loss-spaces-") as directory:
-                        path = Path(directory) / f"spaces_step_{step + 1}.pt"
-                        directions["run_id"] = wandb_run.id
-                        if space_progress is not None:
-                            space_progress({"stage": "artifact_save_start", "step": step + 1})
-                        t.save(directions, path)
-                        if space_progress is not None:
-                            space_progress({"stage": "artifact_saved", "bytes": path.stat().st_size})
-                        artifact.add_file(str(path))
-                        wandb_run.log_artifact(artifact, aliases=[f"step-{step + 1}"])
-                        if space_progress is not None:
-                            space_progress({"stage": "artifact_upload_queued", "step": step + 1})
             wandb_run.log(metrics, step=step + 1)
 
     return losses
