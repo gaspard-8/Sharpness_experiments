@@ -1,5 +1,103 @@
 # Sharpness experiments
 
+## Input-dependence tower sweep
+
+`sweep_input_tower.py` prepares **three independent runs**, one function per
+model, with the same one-layer transformer, width 256, 8 heads, batch size 64,
+AdamW settings, and 30,000 updates as the Fourier experiment. The new targets
+use **32 input bits and degrees 1–8**, starting from an **8-input core** and
+adding one relevant input at each subsequent stage up to 32 inputs.
+
+All three targets have zero mean and squared L2 norm one. The input-stage
+mass is identical across targets: stage `r=1` is the whole core, `r=2` adds
+input 9, and so on; `v_r = r^(-2) / sum(q=1..25, q^(-2))`. The core carries
+62.3% of the variance, adding input 9 contributes 15.6%, and adding input 10
+contributes 6.92%. Thus the first 10 inputs recover 84.8% of each target's
+mass, independent of its degree profile. Further contributions strictly
+decrease. This controls **approximate dependence on a small set of inputs**;
+the complete default targets still depend on all 32 inputs.
+
+| Function | Global Fourier mass by degree |
+| --- | --- |
+| `input_tower_increasing` | `w_d = d^2 / sum(q=1..8, q^2)` |
+| `input_tower_random` | Reproducible positive random weights, normalized to sum to one |
+| `input_tower_top_heavy` | 90% of mass on degrees 7 and 8; 10% shared over degrees 1–6 |
+
+For each input stage and degree, the construction chooses up to 16 distinct
+subsets and divides that stage/degree's mass equally across them, with random
+signs. The core uses subsets of its first eight inputs. Later stages use only
+available inputs and require every term to contain the newly introduced input.
+Coefficient magnitudes are `sqrt(v_r * w_d / number_of_terms_at_stage_and_degree)`.
+Supports and signs are **shared across all three profiles**, as are model
+initialization and held-out inputs. Only the degree weights vary.
+
+The core is needed to separate the two controls. If decreasing input-stage
+mass starts with a single input, degree-1 mass must be at least that first
+stage's mass, whereas degree-32 mass cannot exceed the last stage's mass.
+Consequently the full degree spectrum cannot be strictly increasing. Starting
+with a core at least as large as the maximum degree permits independent global
+degree weights at every stage. The matched input-tail guarantee applies from
+the core onward; approximations within the core need not have matched errors.
+
+Every step, including step zero, logs both:
+
+- `eval/loss_degree_1` through `eval/loss_degree_8`: MSE against cumulative
+  Fourier approximations through each degree.
+- `eval/loss_input_1` through `eval/loss_input_32`: MSE against
+  `E[f(X) | the first k positions in input_order]`. Under uniform independent
+  bits, this retains exactly the Fourier terms fully contained in those inputs.
+
+All targets are precomputed on the same held-out set, so both axes use one
+bank of model predictions. `eval/loss_degree_8`, `eval/loss_input_32`, and
+`eval/loss` are identical. Training always receives the full function output.
+These losses compare a full model output with a truncated target; they do not
+project the model itself. Lower-cutoff losses can rise as other parts are learned.
+
+The input projections use a specified nested ordering; they are not a search
+for the best possible k-input subset. `target.json` records that ordering,
+all coefficients, actual degree mass, input-stage mass, prefix tail errors,
+and individual input influences. `evaluation.pt` stores both target banks.
+Results use new directories under `results/input_tower/`, or the cluster's
+`SHARPNESS_RESULTS_DIR`. The original four-run Fourier sweep remains available.
+
+```bash
+env/bin/python sweep_input_tower.py --list
+env/bin/python sweep_input_tower.py --run-index 0 --smoke-test --no-wandb --device cpu
+# On the submission host, queue the three full runs:
+bash submit-input-tower-sweep.sh
+```
+
+`--input-order permuted` renames the input positions with a reproducible
+permutation while retaining the same structure and coefficients in rank order.
+This tests physical-position preferences. Change `--tower-core-size`,
+`--max-degree`, `--input-power`, `--input-spectrum`, `--input-decay`,
+`--terms-per-stage-degree`, `--degree-power`, `--top-mass`, or `--top-band`
+to customize the family; all three runs receive the same options.
+
+A one-input core is also supported with `--tower-core-size 1 --max-degree 8`.
+In that mode, each stage renormalizes its requested degree weights over the
+degrees it can actually represent. The global degree profile is consequently
+different from the requested weights, and metadata explicitly identifies the
+profile as conditional and saves the actual spectrum.
+
+For independent global spectra through degree 32 with a nontrivial input
+tower, use `--input-len 64 --tower-core-size 32 --max-degree 32`.
+
+```bash
+bash submit-input-tower-sweep.sh -append 'experiment_args=--input-order permuted'
+# Plot input cutoffs 8–14 from one extracted run:
+env/bin/python scripts/plot_fourier_loss.py --input unzipped_results --run input_tower_increasing \
+  --axis input --min-cutoff 8 --max-inputs 14 --max-step 15000
+# Plot degree cutoffs from the same run:
+env/bin/python scripts/plot_fourier_loss.py --input unzipped_results --run input_tower_increasing \
+  --axis degree --max-degree 8 --max-step 15000
+```
+
+The input-tower launcher defaults to the W&B project `input tower Fourier
+sharpness`; existing project/entity overrides and credentials are respected.
+Source transfers and result archives use the existing cluster runner.
+Plot filenames distinguish input/degree axes and preserve earlier exports.
+
 ## Single-task Fourier sweep
 
 The separate experiment in `test_fourier.py` trains a **one-layer transformer**
@@ -11,7 +109,7 @@ the existing token/position embedding concatenation, scalar regression head,
 MSE, and AdamW (`lr=1e-4`, `weight_decay=1e-2`). The model uses the largest
 embedding size and head count from the arithmetic sweep: token and position
 embeddings of size 128 each (`d_model=256`), 8 heads, and one layer. Defaults are 30,000 updates,
-batch size 320, and 1,024 fixed unique held-out inputs excluded from training.
+batch size 64, and 1,024 fixed unique held-out inputs excluded from training.
 
 The Boolean-cube Fourier convention is
 `chi_S(x) = product(i in S, 1 - 2*x_i)`, with
@@ -82,7 +180,7 @@ env/bin/python test_fourier.py --function sparse_powerlaw --max-degree 16 --no-w
 
 `sweep_fourier.py` contains **four independent runs**, one per target. All use
 embedding size 128 per token/position embedding (`d_model=256`), 8 attention
-heads, batch size 320, and one transformer layer. Only the target function
+heads, batch size 64, and one transformer layer. Only the target function
 varies. Smoke tests shorten
 training to two updates and reduce evaluation/probe counts, preserving the
 chosen input length, degree range, architecture, and sweep batch size.
@@ -101,6 +199,27 @@ The default W&B project is `single task Fourier sharpness`; `WANDB_PROJECT`
 and `WANDB_ENTITY` overrides are honored. Jobs share a W&B group based on the
 Condor cluster ID and archive local metrics, checkpoints, target coefficients,
 and executed sources in the existing `results.tar.gz` output.
+
+Plot cumulative evaluation losses from one run on one graph:
+
+```bash
+env/bin/python -m pip install -r requirements-plot.txt
+env/bin/python scripts/plot_fourier_loss.py --input unzipped_results --max-degree 7 --max-step 15000
+# An archive can also be read directly without extraction:
+env/bin/python scripts/plot_fourier_loss.py --input 123613.0.tar.gz
+```
+
+The script uses raw recorded values, including step zero, and writes PNG, SVG,
+CSV, and a source metadata JSON to `results/fourier_loss/`.
+
+Output filenames include the run name, degree range, and step limit. Repeating
+the same plot adds `__2`, `__3`, etc. to all four exports, preserving previous
+plots and data, even when only one of the previous exports is present.
+
+Use `--list-runs` to see available runs and `--run <name-or-path-substring>` to select one when
+the input folder contains several. Defaults are degrees 1 through 7 and steps
+0 through 15,000. With no input specified, it first looks in `unzipped_results`
+and falls back to Fourier archives in the project directory if needed.
 
 `Voting_Function(function)` evaluates the wrapped function on the same input
 and converts its score into a binary label. It uses a strict `> 0.5` decision
@@ -437,7 +556,8 @@ ssh "$CLUSTER_LOGIN" 'mkdir -p /nethome/gtomas/projects/sharpness_experiments'
 rsync -av dockerfile .dockerignore requirements.txt test.py test_arithmetic.py src tests \
   run-test.sh test.sub submit-wandb.sh submit.sh sweep_arithmetic.py \
   sweep_arithmetic.sub submit-sweep.sh test_fourier.py sweep_fourier.py \
-  sweep_fourier.sub submit-fourier-sweep.sh README.md \
+  sweep_fourier.sub submit-fourier-sweep.sh sweep_input_tower.py \
+  sweep_input_tower.sub submit-input-tower-sweep.sh README.md \
   "$CLUSTER_LOGIN:/nethome/gtomas/projects/sharpness_experiments/"
 ssh "$CLUSTER_LOGIN"
 cd /nethome/gtomas/projects/sharpness_experiments

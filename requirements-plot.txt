@@ -1,0 +1,2 @@
+# Optional dependency for scripts/plot_fourier_loss.py; supports the local Python 3.9 environment.
+matplotlib==3.9.4

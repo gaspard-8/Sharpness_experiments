@@ -3,8 +3,8 @@
     env/bin/python sweep_fourier.py --list
     env/bin/python sweep_fourier.py --run-index 0 --smoke-test --no-wandb --device cpu
 
-Use the largest embeddings, head count and batch size from the arithmetic
-sweep, with the requested one transformer layer. Evaluation inputs and model
+Use the largest embeddings and head count from the arithmetic sweep, with
+batch size 64 and the requested one transformer layer. Evaluation inputs and model
 initialization are shared across targets; --seed changes initialization/training.
 """
 

@@ -128,6 +128,20 @@ class FourierFunction(BoolFunction):
         """Column k-1 is f_{<=k}(x), without renormalizing the truncation."""
         return self.components(inputs, dtype).cumsum(dim=1)
 
+    def input_cumulative(self, inputs, dtype=torch.float32):
+        """E[f(X) | the first k inputs in input_order], for k=1..input_len.
+
+        Under uniform independent bits, retain exactly the characters whose
+        complete support is contained in the available input positions.
+        """
+        order = getattr(self, "input_order", tuple(range(self.input_len)))
+        ranks = {position: rank for rank, position in enumerate(order, start=1)}
+        last_ranks = torch.tensor([max(ranks[position] for position in subset)
+                                  for subset in self.subsets], device=inputs.device)
+        mask = (last_ranks[:, None] <= torch.arange(1, self.input_len + 1, device=inputs.device)).to(dtype)
+        _, coefficients = self._tensors(inputs.device, dtype)
+        return (self.basis(inputs, dtype) * coefficients) @ mask
+
     def approximation(self, inputs, degree):
         if not isinstance(degree, int) or isinstance(degree, bool) or not 0 <= degree <= self.max_degree:
             raise ValueError("approximation degree must be between 0 and max_degree.")

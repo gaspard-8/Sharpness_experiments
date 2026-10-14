@@ -3,7 +3,8 @@
     env/bin/python test_fourier.py --function sparse_powerlaw --smoke-test --no-wandb --device cpu
 
 Supervision is always the full real-valued function. After every update,
-one held-out model pass scores every cumulative degree approximation.
+one held-out model pass scores every cumulative degree approximation and,
+for input-tower targets, each conditional input approximation.
 """
 
 import argparse
@@ -21,6 +22,7 @@ from src.runtime import DiagnosticProgress, configure_cpu_environment
 
 FUNCTION_NAMES = ("concentrated_powerlaw", "concentrated_geometric",
                   "sparse_powerlaw", "sparse_geometric")
+INPUT_TOWER_FUNCTION_NAMES = ("input_tower_increasing", "input_tower_random", "input_tower_top_heavy")
 
 
 def positive_int(value):
@@ -39,12 +41,20 @@ def nonnegative_int(value):
 
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--function", choices=FUNCTION_NAMES, default=FUNCTION_NAMES[0])
+    parser.add_argument("--function", choices=(*FUNCTION_NAMES, *INPUT_TOWER_FUNCTION_NAMES), default=FUNCTION_NAMES[0])
     parser.add_argument("--input-len", type=positive_int, default=32, help="Binary payload length; must exceed 24.")
-    parser.add_argument("--max-degree", type=positive_int, help="Highest nonzero Fourier degree; default input-len.")
-    parser.add_argument("--sparse-terms", type=positive_int, default=16, help="Max subsets per degree for sparse targets.")
+    parser.add_argument("--max-degree", type=positive_int, help="Highest degree; defaults to input-len, or core size for input towers.")
+    parser.add_argument("--sparse-terms", type=positive_int, default=16, help="Max subsets per degree, or per stage/degree for input towers.")
     parser.add_argument("--power", type=float, default=2.0, help="Power-law mass exponent: mass_d proportional to d^(-power).")
     parser.add_argument("--geometric-decay", type=float, default=0.9, help="Geometric mass ratio between consecutive degrees.")
+    parser.add_argument("--tower-core-size", type=positive_int, default=8,
+                        help="Initial input core for input-tower functions; default max-degree equals this size.")
+    parser.add_argument("--input-spectrum", choices=("powerlaw", "geometric"), default="powerlaw")
+    parser.add_argument("--input-power", type=float, default=2.0)
+    parser.add_argument("--input-decay", type=float, default=0.9)
+    parser.add_argument("--input-order", choices=("prefix", "permuted"), default="prefix")
+    parser.add_argument("--top-mass", type=float, default=0.9, help="Mass in top degree band for top-heavy input-tower target.")
+    parser.add_argument("--top-band", type=positive_int, help="Number of top degrees; default ceil(max-degree / 4).")
     parser.add_argument("--function-seed", type=int, default=17, help="Fixed sparse support/sign seed, independent of model seed.")
     parser.add_argument("--seed", type=int, default=7, help="Model initialization and training sampling seed.")
     parser.add_argument("--eval-seed", type=int, default=23, help="Same held-out inputs across targets and architectures.")
@@ -78,12 +88,27 @@ def build_model_config(args):
                 vocab_size=2, dropout=0.0, max_len=args.input_len)
 
 
+def build_function(args):
+    if args.function in INPUT_TOWER_FUNCTION_NAMES:
+        from src.input_tower import make_input_tower
+        return make_input_tower(
+            args.function, input_len=args.input_len, max_degree=args.max_degree,
+            core_size=args.tower_core_size, terms_per_stage_degree=args.sparse_terms,
+            input_spectrum=args.input_spectrum, input_power=args.input_power, input_decay=args.input_decay,
+            degree_power=args.power, top_mass=args.top_mass, top_band=args.top_band,
+            input_order=args.input_order, seed=args.function_seed,
+        )
+    from src.fourier import make_function
+    return make_function(args.function, input_len=args.input_len, max_degree=args.max_degree,
+                         sparse_terms=args.sparse_terms, power=args.power,
+                         geometric_decay=args.geometric_decay, seed=args.function_seed)
+
+
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     cluster_cpus = configure_cpu_environment()
     import torch
-    from src.fourier import make_function
     from src.fourier_training import TrainingConfig, train
     from src.model import TransformerModel
 
@@ -104,9 +129,7 @@ def main(argv=None):
             raise ValueError("lr must be finite and positive.")
         if not math.isfinite(args.weight_decay) or args.weight_decay < 0:
             raise ValueError("weight-decay must be finite and nonnegative.")
-        function = make_function(args.function, input_len=args.input_len, max_degree=args.max_degree,
-                                 sparse_terms=args.sparse_terms, power=args.power,
-                                 geometric_decay=args.geometric_decay, seed=args.function_seed)
+        function = build_function(args)
         config = TrainingConfig(eval_seed=args.eval_seed, sharpness_seed=args.eval_seed)
         if args.smoke_test:
             config.num_steps = 2
@@ -129,7 +152,8 @@ def main(argv=None):
     optimizer_config = {"lr": args.lr, "weight_decay": args.weight_decay}
     optimizer = torch.optim.AdamW(model.parameters(), **optimizer_config)
     results_root = Path(os.getenv("SHARPNESS_RESULTS_DIR", "results"))
-    output_dir = args.output_dir or results_root / "fourier" / (
+    is_input_tower = args.function in INPUT_TOWER_FUNCTION_NAMES
+    output_dir = args.output_dir or results_root / ("input_tower" if is_input_tower else "fourier") / (
         datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S") + "-" + uuid4().hex[:8])
     if output_dir.exists() and (not output_dir.is_dir() or any(output_dir.iterdir())):
         raise ValueError("Choose a new or empty output directory to preserve previous results.")
@@ -138,11 +162,13 @@ def main(argv=None):
         f"fourier-{function.metric_name}-n{function.input_len}-k{function.max_degree}-"
         f"e{args.embedding_size}-h{args.num_attn_heads}-b{config.batch_size}-seed{args.seed}")
     metadata = {
-        "experiment": "single_task_fourier", "seed": args.seed, "device": str(device),
+        "experiment": "single_task_input_tower" if is_input_tower else "single_task_fourier", "seed": args.seed, "device": str(device),
         "smoke_test": args.smoke_test, "run_name": run_name, "wandb_group": args.wandb_group,
         "num_tasks": 1, "selector_size": 0, "function": function.metadata(),
-        "evaluation": "MSE(model(x), cumulative_target_through_degree_k), post_update_every_step",
-        "epsilon_definition": "squared_uniform_L2_tail_mass_above_degree_k",
+        "evaluation": ("MSE(model(x), cumulative_degree_target_k) and MSE(model(x), conditional_input_target_k), post_update_every_step"
+                       if is_input_tower else "MSE(model(x), cumulative_target_through_degree_k), post_update_every_step"),
+        "epsilon_definition": ("squared_uniform_L2_omitted_mass_above_degree_cutoff_or_outside_input_order_prefix"
+                               if is_input_tower else "squared_uniform_L2_tail_mass_above_degree_k"),
         "loss_name": "MSELoss", "loss_reduction": "mean", "optimizer_name": "AdamW",
         "model_embedding_size": args.embedding_size,
         **{f"model_{key}": value for key, value in model_config.items()},
@@ -153,6 +179,9 @@ def main(argv=None):
     (output_dir / "target.json").write_text(json.dumps(function.metadata(), indent=2) + "\n")
     print(f"Device: {device}; results: {output_dir.resolve()}", flush=True)
     print(f"One target: {function.metric_name}; {function.input_len} input bits; degrees 1..{function.max_degree}", flush=True)
+    if is_input_tower:
+        scope = function.metadata()["degree_profile_scope"]
+        print(f"Input tower: core {function.core_size}, then one additional input per stage; degree profile scope: {scope}", flush=True)
     print(f"Model: {model_config}; batch size: {config.batch_size}; steps: {config.num_steps}", flush=True)
     progress = DiagnosticProgress(output_dir, device)
     run = None
@@ -161,7 +190,7 @@ def main(argv=None):
             import wandb
             run = wandb.init(
                 entity=os.getenv("WANDB_ENTITY", "gaspardtomas-universit-t-des-saarlandes-saarland-university"),
-                project=os.getenv("WANDB_PROJECT", "single task Fourier sharpness"),
+                project=os.getenv("WANDB_PROJECT", "input tower Fourier sharpness" if is_input_tower else "single task Fourier sharpness"),
                 config=metadata, name=run_name, group=args.wandb_group,
                 settings=wandb.Settings(_disable_stats=True),
             )

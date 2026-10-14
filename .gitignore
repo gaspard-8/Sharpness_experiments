@@ -9,3 +9,4 @@ __pycache__/
 .wandb-cluster-key
 /results/space_artifacts/
 /results/spaces_report/**/overlap_directions.pt
+results/

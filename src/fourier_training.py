@@ -1,4 +1,4 @@
-"""Single-target regression with all cumulative Fourier losses at every update."""
+"""Single-target regression with cumulative degree/input losses at every update."""
 
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ def evaluation_mode(model):
 class FourierEvaluation:
     held_out: EvaluationSet
     cumulative_targets: torch.Tensor
+    input_targets: torch.Tensor | None = None
 
 
 def prepare_evaluation(function, num_inputs=1024, seed=23, device=torch.device("cpu")):
@@ -39,11 +40,16 @@ def prepare_evaluation(function, num_inputs=1024, seed=23, device=torch.device("
     # still runs on its configured device; no Fourier transform of it is needed.
     with torch.no_grad():
         targets = function.cumulative(held_out.inputs.cpu(), dtype=torch.float64)
-    return FourierEvaluation(held_out, targets)
+        input_targets = None
+        if getattr(function, "evaluate_input_tower", False):
+            input_targets = function.input_cumulative(held_out.inputs.cpu(), dtype=torch.float64)
+            # Both final cutoffs are the same target, including rounding.
+            input_targets[:, -1] = targets[:, -1]
+    return FourierEvaluation(held_out, targets, input_targets)
 
 
 def evaluate_cumulative(model, evaluation, batch_size=320):
-    """One set of batched model forwards supplies every degree's loss.
+    """One set of batched model forwards supplies every degree/input loss.
 
     These are MSE(g(x), f_{<=k}(x)), NOT projected model losses or coefficient
     errors. The degree-K loss equals full-target loss. A perfectly learned
@@ -58,6 +64,10 @@ def evaluate_cumulative(model, evaluation, batch_size=320):
     metrics = {f"eval/loss_degree_{degree}": float(loss)
                for degree, loss in enumerate(losses, start=1)}
     metrics["eval/loss"] = float(losses[-1])
+    if evaluation.input_targets is not None:
+        input_losses = (predictions[:, None] - evaluation.input_targets).square().mean(dim=0)
+        metrics.update({f"eval/loss_input_{count}": float(loss)
+                        for count, loss in enumerate(input_losses, start=1)})
     return metrics
 
 
@@ -83,7 +93,7 @@ def output_sharpness(model, function, *, num_inputs=32, num_perturbations=4, rho
 @dataclass
 class TrainingConfig:
     num_steps: int = 30_000
-    batch_size: int = 320
+    batch_size: int = 64
     eval_interval: int = 1
     eval_num_inputs: int = 1024
     eval_batch_size: int = 320
@@ -125,8 +135,12 @@ def train(model, function: FourierFunction, optimizer, config: TrainingConfig, *
     evaluation = prepare_evaluation(function, config.eval_num_inputs, config.eval_seed, device)
     if output_dir is not None:
         output_dir.mkdir(parents=True, exist_ok=True)
-        torch.save({"inputs": evaluation.held_out.inputs.cpu(),
-                    "cumulative_targets": evaluation.cumulative_targets}, output_dir / "evaluation.pt")
+        evaluation_data = {"inputs": evaluation.held_out.inputs.cpu(),
+                           "cumulative_targets": evaluation.cumulative_targets}
+        if evaluation.input_targets is not None:
+            evaluation_data.update(input_targets=evaluation.input_targets,
+                                   input_order=torch.tensor(function.input_order))
+        torch.save(evaluation_data, output_dir / "evaluation.pt")
     path = output_dir / "metrics.jsonl" if output_dir is not None else None
     stream = path.open("w") if path is not None else None
 
