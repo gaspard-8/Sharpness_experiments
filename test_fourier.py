@@ -1,0 +1,186 @@
+"""Train ONE Fourier target with a ONE-layer transformer on more than 24 bits.
+
+    env/bin/python test_fourier.py --function sparse_powerlaw --smoke-test --no-wandb --device cpu
+
+Supervision is always the full real-valued function. After every update,
+one held-out model pass scores every cumulative degree approximation.
+"""
+
+import argparse
+from dataclasses import asdict
+from datetime import datetime, timezone
+import faulthandler
+import json
+import math
+import os
+from pathlib import Path
+from uuid import uuid4
+
+from src.runtime import DiagnosticProgress, configure_cpu_environment
+
+
+FUNCTION_NAMES = ("concentrated_powerlaw", "concentrated_geometric",
+                  "sparse_powerlaw", "sparse_geometric")
+
+
+def positive_int(value):
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("Expected a positive integer.")
+    return parsed
+
+
+def nonnegative_int(value):
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("Expected a nonnegative integer.")
+    return parsed
+
+
+def build_parser():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--function", choices=FUNCTION_NAMES, default=FUNCTION_NAMES[0])
+    parser.add_argument("--input-len", type=positive_int, default=32, help="Binary payload length; must exceed 24.")
+    parser.add_argument("--max-degree", type=positive_int, help="Highest nonzero Fourier degree; default input-len.")
+    parser.add_argument("--sparse-terms", type=positive_int, default=16, help="Max subsets per degree for sparse targets.")
+    parser.add_argument("--power", type=float, default=2.0, help="Power-law mass exponent: mass_d proportional to d^(-power).")
+    parser.add_argument("--geometric-decay", type=float, default=0.9, help="Geometric mass ratio between consecutive degrees.")
+    parser.add_argument("--function-seed", type=int, default=17, help="Fixed sparse support/sign seed, independent of model seed.")
+    parser.add_argument("--seed", type=int, default=7, help="Model initialization and training sampling seed.")
+    parser.add_argument("--eval-seed", type=int, default=23, help="Same held-out inputs across targets and architectures.")
+    parser.add_argument("--steps", type=positive_int)
+    parser.add_argument("--batch-size", type=positive_int)
+    parser.add_argument("--embedding-size", type=positive_int, default=128,
+                        help="Size of EACH token/position embedding; d_model is twice this value.")
+    parser.add_argument("--num-attn-heads", type=positive_int, default=8)
+    parser.add_argument("--eval-inputs", type=positive_int, help="Held-out examples; default 1024, smoke test 8.")
+    parser.add_argument("--eval-batch-size", type=positive_int, default=320)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--weight-decay", type=float, default=1e-2)
+    parser.add_argument("--sharpness-interval", type=nonnegative_int,
+                        help="Output sharpness every N steps (default 100; smoke test 1); 0 disables it.")
+    parser.add_argument("--smoke-test", action="store_true")
+    parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--device")
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--run-name")
+    parser.add_argument("--wandb-group")
+    return parser
+
+
+def build_model_config(args):
+    if args.input_len <= 24:
+        raise ValueError("input-len must be greater than 24, including for smoke tests.")
+    d_model = 2 * args.embedding_size
+    if d_model % args.num_attn_heads:
+        raise ValueError("Twice embedding-size must be divisible by num-attn-heads.")
+    return dict(d_model=d_model, num_attn_heads=args.num_attn_heads, num_layers=1,
+                vocab_size=2, dropout=0.0, max_len=args.input_len)
+
+
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    cluster_cpus = configure_cpu_environment()
+    import torch
+    from src.fourier import make_function
+    from src.fourier_training import TrainingConfig, train
+    from src.model import TransformerModel
+
+    if cluster_cpus is not None:
+        torch.set_num_threads(cluster_cpus)
+        torch.set_num_interop_threads(1)
+    elif args.smoke_test:
+        torch.set_num_threads(1)
+    faulthandler.enable()
+    default_device = "cuda" if torch.cuda.is_available() else (
+        "mps" if torch.backends.mps.is_available() else "cpu")
+    device = torch.device(args.device or os.getenv("SHARPNESS_DEVICE", default_device))
+    if device.type == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested but is unavailable.")
+    try:
+        model_config = build_model_config(args)
+        if not math.isfinite(args.lr) or args.lr <= 0:
+            raise ValueError("lr must be finite and positive.")
+        if not math.isfinite(args.weight_decay) or args.weight_decay < 0:
+            raise ValueError("weight-decay must be finite and nonnegative.")
+        function = make_function(args.function, input_len=args.input_len, max_degree=args.max_degree,
+                                 sparse_terms=args.sparse_terms, power=args.power,
+                                 geometric_decay=args.geometric_decay, seed=args.function_seed)
+        config = TrainingConfig(eval_seed=args.eval_seed, sharpness_seed=args.eval_seed)
+        if args.smoke_test:
+            config.num_steps = 2
+            config.batch_size = 16
+            config.eval_num_inputs = 8
+            config.sharpness_interval = 1
+            config.sharpness_num_inputs = 4
+            config.sharpness_num_perturbations = 1
+        for value, field in ((args.steps, "num_steps"), (args.batch_size, "batch_size"),
+                             (args.eval_inputs, "eval_num_inputs"), (args.eval_batch_size, "eval_batch_size")):
+            if value is not None:
+                setattr(config, field, value)
+        if args.sharpness_interval is not None:
+            config.sharpness_interval = args.sharpness_interval or None
+        torch.manual_seed(args.seed)
+        model = TransformerModel(**model_config).to(device)
+        config.validate(function, model)
+    except ValueError as error:
+        parser.error(str(error))
+    optimizer_config = {"lr": args.lr, "weight_decay": args.weight_decay}
+    optimizer = torch.optim.AdamW(model.parameters(), **optimizer_config)
+    results_root = Path(os.getenv("SHARPNESS_RESULTS_DIR", "results"))
+    output_dir = args.output_dir or results_root / "fourier" / (
+        datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S") + "-" + uuid4().hex[:8])
+    if output_dir.exists() and (not output_dir.is_dir() or any(output_dir.iterdir())):
+        raise ValueError("Choose a new or empty output directory to preserve previous results.")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    run_name = args.run_name or (
+        f"fourier-{function.metric_name}-n{function.input_len}-k{function.max_degree}-"
+        f"e{args.embedding_size}-h{args.num_attn_heads}-b{config.batch_size}-seed{args.seed}")
+    metadata = {
+        "experiment": "single_task_fourier", "seed": args.seed, "device": str(device),
+        "smoke_test": args.smoke_test, "run_name": run_name, "wandb_group": args.wandb_group,
+        "num_tasks": 1, "selector_size": 0, "function": function.metadata(),
+        "evaluation": "MSE(model(x), cumulative_target_through_degree_k), post_update_every_step",
+        "epsilon_definition": "squared_uniform_L2_tail_mass_above_degree_k",
+        "loss_name": "MSELoss", "loss_reduction": "mean", "optimizer_name": "AdamW",
+        "model_embedding_size": args.embedding_size,
+        **{f"model_{key}": value for key, value in model_config.items()},
+        **{f"optimizer_{key}": value for key, value in optimizer_config.items()},
+        **{f"train_{key}": value for key, value in asdict(config).items()},
+    }
+    (output_dir / "config.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    (output_dir / "target.json").write_text(json.dumps(function.metadata(), indent=2) + "\n")
+    print(f"Device: {device}; results: {output_dir.resolve()}", flush=True)
+    print(f"One target: {function.metric_name}; {function.input_len} input bits; degrees 1..{function.max_degree}", flush=True)
+    print(f"Model: {model_config}; batch size: {config.batch_size}; steps: {config.num_steps}", flush=True)
+    progress = DiagnosticProgress(output_dir, device)
+    run = None
+    try:
+        if args.wandb:
+            import wandb
+            run = wandb.init(
+                entity=os.getenv("WANDB_ENTITY", "gaspardtomas-universit-t-des-saarlandes-saarland-university"),
+                project=os.getenv("WANDB_PROJECT", "single task Fourier sharpness"),
+                config=metadata, name=run_name, group=args.wandb_group,
+                settings=wandb.Settings(_disable_stats=True),
+            )
+        result = train(model, function, optimizer, config, wandb_run=run, output_dir=output_dir)
+        torch.save({"model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(),
+                    "model_config": model_config, "config": metadata, "completed_steps": len(result.losses)},
+                   output_dir / "checkpoint.pt")
+        print(f"Completed {len(result.losses)} updates; held-out full-target MSE: {result.last_metrics['eval/loss']:.6f}", flush=True)
+        progress({"stage": "run_complete"})
+    except BaseException as error:
+        progress({"stage": "failed", "error_type": type(error).__name__, "error": str(error)})
+        if run is not None:
+            run.finish(exit_code=1)
+        raise
+    else:
+        if run is not None:
+            run.finish()
+    return output_dir
+
+
+if __name__ == "__main__":
+    main()

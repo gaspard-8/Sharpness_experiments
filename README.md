@@ -1,5 +1,107 @@
 # Sharpness experiments
 
+## Single-task Fourier sweep
+
+The separate experiment in `test_fourier.py` trains a **one-layer transformer**
+on **one real-valued Fourier function per model**, with identical model settings
+for all four targets. Inputs are independent uniform
+0/1 bits, with no task selector. The default input length and highest degree
+are both **32**; input length must exceed 24 even in smoke tests. Training uses
+the existing token/position embedding concatenation, scalar regression head,
+MSE, and AdamW (`lr=1e-4`, `weight_decay=1e-2`). The model uses the largest
+embedding size and head count from the arithmetic sweep: token and position
+embeddings of size 128 each (`d_model=256`), 8 heads, and one layer. Defaults are 30,000 updates,
+batch size 320, and 1,024 fixed unique held-out inputs excluded from training.
+
+The Boolean-cube Fourier convention is
+`chi_S(x) = product(i in S, 1 - 2*x_i)`, with
+`f(x) = sum(S, a_S * chi_S(x))`. There is no constant term. All four functions
+have mean zero and squared L2 norm one under the uniform input distribution.
+**Mass at degree d** is `w_d = sum(|S|=d, a_S^2)`, with strictly decreasing,
+positive mass at every degree from 1 through the configured `max_degree=K`:
+
+| Function | Subsets at each degree | Degree mass before normalization |
+| --- | --- | --- |
+| `concentrated_powerlaw` | One nested subset `{0, ..., d-1}` | `d^(-2)` |
+| `concentrated_geometric` | One nested subset `{0, ..., d-1}` | `0.9^(d-1)` |
+| `sparse_powerlaw` | Up to 16 randomly selected distinct subsets | `d^(-2)` |
+| `sparse_geometric` | Up to 16 randomly selected distinct subsets | `0.9^(d-1)` |
+
+Sparse targets split each degree's mass equally over their subsets, using
+random coefficient signs. They use `min(16, binomial(input_len, d))` terms;
+at degree 32 there is necessarily just one subset. Within each spectrum,
+concentrated and sparse targets have exactly the same per-degree mass.
+For concentrated targets, coefficient magnitudes are proportional to `1/d`
+(power-law) or `0.9^((d-1)/2)` (geometric). For sparse targets, each selected
+coefficient has magnitude `sqrt(w_d / terms_at_degree_d)`. Strict decrease is
+guaranteed for the **total squared mass per degree**. Individual sparse
+coefficient magnitudes can increase when fewer subsets are available, as at
+degree 32, even though the total mass still decreases.
+Sparse support/signs use `--function-seed 17`, independently of `--seed 7`
+for model initialization/training and `--eval-seed 23` for evaluation inputs.
+These defaults share initialization and evaluation inputs across the four runs
+and keep each target's coefficients reproducible.
+Exact coefficients and all seeds are saved with each run.
+
+The cumulative approximation is `f_{<=k} = sum(|S|<=k, a_S*chi_S)`, retaining
+the original coefficients without renormalizing. Its squared L2 error is
+`epsilon_k = sum(d>k, w_d)`. Thus every cutoff k has its explicit epsilon;
+this is concentration **up to degree k**, rather than all mass at exactly k.
+`FourierFunction.approximation_degree(epsilon)` returns the smallest suitable
+cutoff. `target.json` records the mass and tail above every cutoff, including
+degree zero. `--power`, `--geometric-decay`, `--sparse-terms`, `--max-degree`,
+and `--input-len` customize this construction. A degree cap below input length
+uses zero coefficients above the cap.
+
+**Every completed optimizer update**, evaluation logs
+`eval/loss_degree_1`, ..., `eval/loss_degree_K`, defined as
+`mean((model(x) - f_{<=k}(x))^2)`. `eval/loss` equals the degree-K loss.
+Step zero also records the untrained baseline. Only the full function supplies
+training labels; the approximations are evaluation targets. All target
+approximations are precomputed once, and one set of batched model predictions
+supplies all K losses. This does not estimate the model's Fourier coefficients.
+When the model learns the full target perfectly, lower-degree losses approach
+their omitted tail masses in expectation, so they need not approach zero or
+decrease monotonically with degree during training.
+
+Evaluation runs with dropout disabled and no gradients, then restores model
+modes. Results work with or without W&B: each run saves `config.json`,
+`target.json`, `evaluation.pt`, `metrics.jsonl`, and `checkpoint.pt` in a new
+directory under `results/fourier/` (or under `SHARPNESS_RESULTS_DIR` on the
+cluster). Output sharpness retains the Gaussian parameter-noise diagnostic
+every 100 updates, excluding positional embeddings. It uses independent
+randomness; `--sharpness-interval 0` disables it.
+
+Inspect the sweep or check one configuration locally:
+
+```bash
+env/bin/python sweep_fourier.py --list
+env/bin/python sweep_fourier.py --run-index 0 --smoke-test --no-wandb --device cpu
+env/bin/python test_fourier.py --function sparse_powerlaw --max-degree 16 --no-wandb
+```
+
+`sweep_fourier.py` contains **four independent runs**, one per target. All use
+embedding size 128 per token/position embedding (`d_model=256`), 8 attention
+heads, batch size 320, and one transformer layer. Only the target function
+varies. Smoke tests shorten
+training to two updates and reduce evaluation/probe counts, preserving the
+chosen input length, degree range, architecture, and sweep batch size.
+
+Copy the new launchers together with `src/`, `run-test.sh`, and the existing
+`submit-wandb.sh` to the submission host. Using its existing dependency image
+and credentials, queue the sweep from the project directory with:
+
+```bash
+bash submit-fourier-sweep.sh
+# Override settings shared by all four jobs:
+bash submit-fourier-sweep.sh -append 'experiment_args=--steps 10000 --max-degree 16'
+```
+
+The default W&B project is `single task Fourier sharpness`; `WANDB_PROJECT`
+and `WANDB_ENTITY` overrides are honored. Jobs share a W&B group based on the
+Condor cluster ID and archive local metrics, checkpoints, target coefficients,
+and executed sources in the existing `results.tar.gz` output.
+
 `Voting_Function(function)` evaluates the wrapped function on the same input
 and converts its score into a binary label. It uses a strict `> 0.5` decision
 for 0/1 scores and `> 0` for signed scores, inferred from the function's
@@ -334,7 +436,8 @@ export CLUSTER_LOGIN=gtomas@YOUR_SUBMISSION_HOST
 ssh "$CLUSTER_LOGIN" 'mkdir -p /nethome/gtomas/projects/sharpness_experiments'
 rsync -av dockerfile .dockerignore requirements.txt test.py test_arithmetic.py src tests \
   run-test.sh test.sub submit-wandb.sh submit.sh sweep_arithmetic.py \
-  sweep_arithmetic.sub submit-sweep.sh README.md \
+  sweep_arithmetic.sub submit-sweep.sh test_fourier.py sweep_fourier.py \
+  sweep_fourier.sub submit-fourier-sweep.sh README.md \
   "$CLUSTER_LOGIN:/nethome/gtomas/projects/sharpness_experiments/"
 ssh "$CLUSTER_LOGIN"
 cd /nethome/gtomas/projects/sharpness_experiments
