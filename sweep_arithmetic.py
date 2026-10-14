@@ -18,8 +18,8 @@ from pathlib import Path
 import test_arithmetic as experiment
 
 
-EMBEDDING_SIZES = (16, 32, 64)
-NUM_LAYERS = (2, 4)
+EMBEDDING_SIZES = ( 32, 64, 128)
+NUM_LAYERS = (1, 2, 4)
 ATTENTION_HEADS = (2, 4, 8)
 BATCH_SIZES = (64, 320)
 
@@ -60,7 +60,7 @@ def experiment_arguments(args):
         argv.extend(["--" + option.replace("_", "-"), str(value)])
     if args.smoke_test:
         argv.append("--smoke-test")
-    argv.extend(["--steps", str(args.steps if args.steps is not None else (2 if args.smoke_test else 30_000))])
+    argv.extend(["--steps", str(args.steps if args.steps is not None else (2 if args.smoke_test else 50_000))])
     for option in ("device", "output_dir"):
         value = getattr(args, option)
         if value is not None:
