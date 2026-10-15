@@ -10,3 +10,5 @@ __pycache__/
 /results/space_artifacts/
 /results/spaces_report/**/overlap_directions.pt
 results/
+/local_tests/
+scripts/

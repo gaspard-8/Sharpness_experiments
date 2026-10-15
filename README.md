@@ -1,5 +1,10 @@
 # Sharpness experiments
 
+Local unit tests live in `local_tests/`, which is ignored by Git and is not
+needed on the cluster. The root `test*.py` files are training entrypoints used
+by the cluster. Downloaded result archives belong in the ignored `results/`
+folder.
+
 ## Input-dependence tower sweep
 
 `sweep_input_tower.py` prepares **three independent runs**, one function per
@@ -563,7 +568,7 @@ Plot cumulative evaluation losses from one run on one graph:
 env/bin/python -m pip install -r requirements-plot.txt
 env/bin/python scripts/plot_fourier_loss.py --input unzipped_results --max-degree 7 --max-step 15000
 # An archive can also be read directly without extraction:
-env/bin/python scripts/plot_fourier_loss.py --input 123613.0.tar.gz
+env/bin/python scripts/plot_fourier_loss.py --input results/123613.0.tar.gz
 ```
 
 The script uses raw recorded values, including step zero, and writes PNG, SVG,
@@ -577,6 +582,37 @@ Use `--list-runs` to see available runs and `--run <name-or-path-substring>` to 
 the input folder contains several. Defaults are degrees 1 through 7 and steps
 0 through 15,000. With no input specified, it first looks in `unzipped_results`
 and falls back to Fourier archives in the project directory if needed.
+
+To compare the learning of adjacent degrees, plot the signed differences
+`Delta_k = eval/loss_degree_k - eval/loss_degree_(k-1)`:
+
+```bash
+# One figure for each extracted run; degrees 2..7, steps 0..15000:
+env/bin/python scripts/plot_fourier_loss_differences.py --input unzipped_results
+# Focus on L5 - L4 in one run and a chosen time window:
+env/bin/python scripts/plot_fourier_loss_differences.py --input unzipped_results \
+  --run sparse_powerlaw --min-degree 5 --max-degree 5 --min-step 0 --max-step 7500
+```
+
+Each figure shows the cumulative losses above separate difference panels, with
+independent linear vertical scales so small degree contributions remain visible.
+Values are raw and signed, with no smoothing or normalization. The dotted line
+marks the first displayed value; the solid horizontal reference is zero.
+PNG, SVG, CSV, and source metadata JSON are saved to
+`results/fourier_loss_differences/`, with numbered suffixes to preserve existing
+exports. `--list-runs` lists inputs; `--run` selects exactly one, otherwise all
+discovered runs are plotted. Archives can be passed directly as `--input`.
+For shorter runs or fewer recorded degrees, adjust `--max-step` / `--max-degree`.
+
+A flat `L5 - L4` means both losses change equally. A falling difference means
+increasing alignment with the target's degree-5 component. In the uniform
+population, `Delta_k = ||f_=k||^2 - 2 <g, f_=k>`. On the fixed held-out set,
+the exact identity is `Delta_k = mean(p_k^2 - p_(k-1)^2) -
+2 mean(g (p_k-p_(k-1)))`, where `p_k` is the cumulative target. The CSV also
+exports `(Delta_k(first displayed step)-Delta_k(t))/2`, the empirical alignment
+gain since that first step. These differences are not degree-specific error or
+network Fourier mass: flat alignment can hide changes orthogonal to the target,
+and finite evaluation samples can mix contributions from different degrees.
 
 `Voting_Function(function)` evaluates the wrapped function on the same input
 and converts its score into a binary label. It uses a strict `> 0.5` decision
@@ -910,7 +946,7 @@ project location.
 ```bash
 export CLUSTER_LOGIN=gtomas@YOUR_SUBMISSION_HOST
 ssh "$CLUSTER_LOGIN" 'mkdir -p /nethome/gtomas/projects/sharpness_experiments'
-rsync -av dockerfile .dockerignore requirements.txt test.py test_arithmetic.py src tests \
+rsync -av dockerfile .dockerignore requirements.txt test.py test_arithmetic.py src \
   run-test.sh test.sub submit-wandb.sh submit.sh sweep_arithmetic.py \
   sweep_arithmetic.sub submit-sweep.sh test_fourier.py sweep_fourier.py \
   sweep_fourier.sub submit-fourier-sweep.sh sweep_input_tower.py \
@@ -1089,8 +1125,8 @@ bash submit-sweep.sh -append 'experiment_args=--steps 1000'
 Run the arithmetic and submission regression checks locally:
 
 ```bash
-env/bin/python -m unittest discover -s tests -p 'test_arithmetic*.py' -v
-env/bin/python -m unittest discover -s tests -p 'test_submission.py' -v
+env/bin/python -m unittest discover -s local_tests -p 'test_arithmetic*.py' -v
+env/bin/python -m unittest discover -s local_tests -p 'test_submission.py' -v
 ```
 
 ### Submit a short Boolean GPU check, then the full experiment

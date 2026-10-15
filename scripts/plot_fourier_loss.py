@@ -1,7 +1,7 @@
 """Plot cumulative Fourier evaluation losses for one saved run, entirely offline.
 
     env/bin/python scripts/plot_fourier_loss.py --input unzipped_results
-    env/bin/python scripts/plot_fourier_loss.py --input 123613.0.tar.gz
+    env/bin/python scripts/plot_fourier_loss.py --input results/123613.0.tar.gz
     env/bin/python scripts/plot_fourier_loss.py --input unzipped_results --list-runs
 
 Accepts a metrics.jsonl, an extracted results folder, or a .tar.gz archive.
@@ -210,7 +210,7 @@ def positive_int(value):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--input", type=Path, help="Folder, metrics.jsonl, or archive; default unzipped_results with archive fallback.")
+    parser.add_argument("--input", type=Path, help="Folder, metrics.jsonl, or archive; default unzipped_results with archive fallback in results/.")
     parser.add_argument("--run", help="Select one run by a unique name or path substring.")
     parser.add_argument("--list-runs", action="store_true")
     parser.add_argument("--axis", choices=("degree", "input"), default="degree")
@@ -227,7 +227,7 @@ def main(argv=None):
             extracted = ROOT / "unzipped_results"
             sources = discover_runs(extracted) if extracted.exists() else []
             if not sources:
-                sources = [source for archive in sorted(ROOT.glob("*.tar.gz")) for source in discover_runs(archive)]
+                sources = [source for archive in sorted((ROOT / "results").glob("*.tar.gz")) for source in discover_runs(archive)]
         if not sources:
             raise ValueError("No Fourier metrics.jsonl found. Pass --input with a Fourier results folder or archive.")
         if args.list_runs:
