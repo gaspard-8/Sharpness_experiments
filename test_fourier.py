@@ -74,6 +74,7 @@ def build_parser():
     parser.add_argument("--device")
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--run-name")
+    parser.add_argument("--wandb-project", help="W&B project; overrides WANDB_PROJECT.")
     parser.add_argument("--wandb-group")
     return parser
 
@@ -161,9 +162,12 @@ def main(argv=None):
     run_name = args.run_name or (
         f"fourier-{function.metric_name}-n{function.input_len}-k{function.max_degree}-"
         f"e{args.embedding_size}-h{args.num_attn_heads}-b{config.batch_size}-seed{args.seed}")
+    wandb_project = args.wandb_project or os.getenv(
+        "WANDB_PROJECT", "input tower Fourier sharpness" if is_input_tower else "single task Fourier sharpness")
     metadata = {
         "experiment": "single_task_input_tower" if is_input_tower else "single_task_fourier", "seed": args.seed, "device": str(device),
         "smoke_test": args.smoke_test, "run_name": run_name, "wandb_group": args.wandb_group,
+        "wandb_project": wandb_project,
         "num_tasks": 1, "selector_size": 0, "function": function.metadata(),
         "evaluation": ("MSE(model(x), cumulative_degree_target_k) and MSE(model(x), conditional_input_target_k), post_update_every_step"
                        if is_input_tower else "MSE(model(x), cumulative_target_through_degree_k), post_update_every_step"),
@@ -190,7 +194,7 @@ def main(argv=None):
             import wandb
             run = wandb.init(
                 entity=os.getenv("WANDB_ENTITY", "gaspardtomas-universit-t-des-saarlandes-saarland-university"),
-                project=os.getenv("WANDB_PROJECT", "input tower Fourier sharpness" if is_input_tower else "single task Fourier sharpness"),
+                project=wandb_project,
                 config=metadata, name=run_name, group=args.wandb_group,
                 settings=wandb.Settings(_disable_stats=True),
             )

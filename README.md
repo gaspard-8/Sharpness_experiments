@@ -200,6 +200,59 @@ and `WANDB_ENTITY` overrides are honored. Jobs share a W&B group based on the
 Condor cluster ID and archive local metrics, checkpoints, target coefficients,
 and executed sources in the existing `results.tar.gz` output.
 
+### Sparse length/degree sweep: sixteen runs, 50,000 steps
+
+`sweep_sparse_grid.py` prepares **eight runs for each of `sparse_powerlaw` and
+`sparse_geometric`**, with one function per model. These eight pairs cover
+lengths 10–20 and maximum degrees 3–6. Each selected length and each degree
+occurs in two pairs; the completed `(20, 6)` setting is excluded.
+
+| Run indices | Input length | Maximum degree | Held-out inputs |
+| --- | --- | --- | --- |
+| 0, 1 | 10 | 3 | 256 |
+| 2, 3 | 10 | 6 | 256 |
+| 4, 5 | 12 | 5 | 1,024 |
+| 6, 7 | 12 | 6 | 1,024 |
+| 8, 9 | 15 | 4 | 1,024 |
+| 10, 11 | 15 | 5 | 1,024 |
+| 12, 13 | 20 | 3 | 1,024 |
+| 14, 15 | 20 | 4 | 1,024 |
+
+Within each pair, the even run index is power-law and the odd index geometric.
+Both use the existing target construction and function seed 17: up to 16
+random subsets per degree, random signs, unit squared L2 norm, and degree mass
+proportional to `d^(-2)` or `0.9^(d-1)`, normalized through the selected cutoff.
+Supports and signs match between spectra at a given length/degree pair.
+Individual coefficient magnitudes also strictly decrease between degrees for
+these configurations, including lengths below 16 where degree 1 has fewer terms.
+
+Every full run uses **50,000 optimizer updates**, batch size 64, one layer,
+width 256, eight heads, AdamW (`lr=1e-4`, `weight_decay=1e-2`), model/training
+seed 7, and evaluation seed 23. The full-target loss and every cumulative
+degree loss are evaluated at step zero and after every update. Output
+sharpness retains the existing settings. Run names include length, degree,
+step count, and seeds; each run saves results in a fresh directory.
+
+Held-out count is `min(1024, 2^length / 4)`: at length 10, reserving all 1,024
+possible sequences would leave no training inputs, so 256 are held out.
+All other rows retain 1,024. Training excludes exact held-out sequences.
+
+```bash
+env/bin/python sweep_sparse_grid.py --list
+env/bin/python sweep_sparse_grid.py --run-index 0 --smoke-test --no-wandb --device cpu
+# On the submission host, queue exactly sixteen full runs:
+bash submit-sparse-grid-sweep.sh
+```
+
+Smoke tests use two updates and retain the selected architecture, batch size,
+length, degree, and held-out count. An explicit `--steps` overrides both the
+full and smoke defaults. Both direct and cluster launches use the new W&B
+project **`sparse functions fourier analysis`**, with a separate
+`sparse-length-degree-sweep-<cluster ID>` group. W&B creates the project on
+the first online run. This project's explicit setting takes precedence over
+an older `WANDB_PROJECT` environment setting; `--wandb-project` can override it.
+The existing sweeps remain available under their original launchers.
+
 ### Original sparse functions on longer sequences: two-run sweep
 
 `sweep_sparse_long.py` selects **only the two sparse targets** from the first
@@ -662,7 +715,8 @@ rsync -av dockerfile .dockerignore requirements.txt test.py test_arithmetic.py s
   sweep_fourier.sub submit-fourier-sweep.sh sweep_input_tower.py \
   sweep_input_tower.sub submit-input-tower-sweep.sh sweep_sparse_small.py \
   sweep_sparse_small.sub submit-sparse-small-sweep.sh sweep_sparse_long.py \
-  sweep_sparse_long.sub submit-sparse-long-sweep.sh README.md \
+  sweep_sparse_long.sub submit-sparse-long-sweep.sh sweep_sparse_grid.py \
+  sweep_sparse_grid.sub submit-sparse-grid-sweep.sh README.md \
   "$CLUSTER_LOGIN:/nethome/gtomas/projects/sharpness_experiments/"
 ssh "$CLUSTER_LOGIN"
 cd /nethome/gtomas/projects/sharpness_experiments
