@@ -98,6 +98,87 @@ sharpness`; existing project/entity overrides and credentials are respected.
 Source transfers and result archives use the existing cluster runner.
 Plot filenames distinguish input/degree axes and preserve earlier exports.
 
+## Classic functions: exact Fourier analysis through degree 8
+
+`sweep_classic_fourier.py` prepares **four independent runs**, one each for
+majority, weighted majority, tribes, and arithmetic mean. Training uses their
+full, natural **0–1 outputs**, without centering, rescaling, or truncating the
+training function. The evaluation cap is **8** for all four runs.
+
+| Index | Function | Inputs | Exact definition | Squared flip sensitivity | Held-out inputs |
+| --- | --- | --- | --- | --- | --- |
+| 0 | Majority | 11 | Strict majority of all bits | 2.70703125 | 512 |
+| 1 | Weighted majority | 13 | Positive weighted vote; weights are a seed-17 permutation of 1–13 | 2.546875 | 1,024 |
+| 2 | Tribes | 15 | OR of five disjoint ANDs, each of width 3 | 2.19818115 | 1,024 |
+| 3 | Mean | 32 | Arithmetic mean of all bits | 0.03125 | 1,024 |
+
+The weights in position order are
+`[2, 4, 1, 8, 13, 10, 12, 3, 11, 6, 5, 7, 9]`. Positive scores of
+`sum_i(weight_i * (2*x_i-1))` return one; other scores return zero. Total
+weight is odd, so this run has no ties. Majority also has an odd input count.
+Tribes is nearly balanced, with probability of output one about 0.4871.
+
+Length increases as measured sensitivity decreases. The shared quantity is
+`sum_i E[(f(X)-f(X with bit i flipped))^2]`. For the three Boolean functions,
+this equals average sensitivity. For continuous mean it is a squared-change
+analogue, **not** the count of output-changing bits. This is a heuristic for
+tractability; equal learning difficulty is not guaranteed. Mean is deliberately
+an easy degree-1 control. The spectra also record variance-normalized average
+degree to distinguish function shape from output scale.
+
+All four spectra have already been prepared in `classic_fourier_targets/`.
+The three Boolean functions use full truth tables and float64 fast
+Walsh-Hadamard transforms, checked by exact reconstruction and Parseval's
+identity. Mean uses its analytic coefficients: constant `1/2`, each singleton
+coefficient `-1/(2*n)`, and zero at higher degrees. Files contain **all**
+coefficients, including those above degree 8, with input-position bitmasks and
+checksums. `manifest.json` records degree masses, omitted tails, sensitivities,
+definitions, and variances. These are natural spectra; no decreasing-mass
+constraint is imposed. Rebuild or verify them before training with:
+
+```bash
+env/bin/python sweep_classic_fourier.py --prepare
+env/bin/python sweep_classic_fourier.py --list
+env/bin/python sweep_classic_fourier.py --run-index 0 --smoke-test --no-wandb --device cpu
+# After copying the prepared spectra and sources to the submission host:
+bash submit-classic-fourier-sweep.sh
+```
+
+Every full run retains **50,000 updates**, one transformer layer, width 256,
+eight heads, batch size 64, AdamW (`lr=1e-4`, `weight_decay=1e-2`), model seed
+7, evaluation seed 23, and the same output-sharpness settings. Held-out
+sequences are excluded from training. W&B uses project
+`sparse functions fourier analysis`, in a separate
+`classic-functions-fourier-<cluster ID>` group. No full jobs are launched by
+preparing the spectra or listing the sweep.
+
+Step zero and **every update** log:
+
+- `eval/loss`: MSE against the **full natural target**, including any degrees
+  above 8.
+- `eval/loss_degree_1` through `eval/loss_degree_8`: MSE against each exact
+  cumulative target, **including the constant term**.
+- Corresponding `_normalized` losses: the same MSE divided by exact target
+  variance, so the smaller output variance of mean does not obscure comparison.
+
+One bank of predictions supplies all losses. Cumulative targets are computed
+once on the fixed evaluation inputs. The full-target and degree-8 losses are
+separate: omitted squared mass above 8 is approximately 0.02542114 for majority,
+0.01130295 for weighted majority, 0.00009756 for tribes, and zero for mean.
+For these odd, tie-free majority functions, even positive-degree coefficients
+vanish, so cutoffs 1/2, 3/4, 5/6, and 7/8 coincide. All eight approximations
+of mean equal the full mean. These equalities are expected controls.
+
+Each run archives `target_spectrum.npz`, target metadata, both full and
+cumulative evaluation targets, metrics, source code, and its final checkpoint.
+Existing synthetic Fourier experiments keep their original evaluation semantics.
+Plot the eight classic cutoff curves with the existing script:
+
+```bash
+env/bin/python scripts/plot_fourier_loss.py --input unzipped_results \
+  --run classic_majority --max-degree 8 --max-step 50000
+```
+
 ## Single-task Fourier sweep
 
 The separate experiment in `test_fourier.py` trains a **one-layer transformer**
@@ -716,7 +797,8 @@ rsync -av dockerfile .dockerignore requirements.txt test.py test_arithmetic.py s
   sweep_input_tower.sub submit-input-tower-sweep.sh sweep_sparse_small.py \
   sweep_sparse_small.sub submit-sparse-small-sweep.sh sweep_sparse_long.py \
   sweep_sparse_long.sub submit-sparse-long-sweep.sh sweep_sparse_grid.py \
-  sweep_sparse_grid.sub submit-sparse-grid-sweep.sh README.md \
+  sweep_sparse_grid.sub submit-sparse-grid-sweep.sh sweep_classic_fourier.py \
+  sweep_classic_fourier.sub submit-classic-fourier-sweep.sh classic_fourier_targets README.md \
   "$CLUSTER_LOGIN:/nethome/gtomas/projects/sharpness_experiments/"
 ssh "$CLUSTER_LOGIN"
 cd /nethome/gtomas/projects/sharpness_experiments

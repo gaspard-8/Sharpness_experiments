@@ -32,6 +32,8 @@ class FourierEvaluation:
     held_out: EvaluationSet
     cumulative_targets: torch.Tensor
     input_targets: torch.Tensor | None = None
+    full_targets: torch.Tensor | None = None
+    target_variance: float | None = None
 
 
 def prepare_evaluation(function, num_inputs=1024, seed=23, device=torch.device("cpu")):
@@ -45,14 +47,17 @@ def prepare_evaluation(function, num_inputs=1024, seed=23, device=torch.device("
             input_targets = function.input_cumulative(held_out.inputs.cpu(), dtype=torch.float64)
             # Both final cutoffs are the same target, including rounding.
             input_targets[:, -1] = targets[:, -1]
-    return FourierEvaluation(held_out, targets, input_targets)
+        full_targets = held_out.labels.cpu().double() if getattr(function, "separate_full_target", False) else None
+        target_variance = function.variance if full_targets is not None else None
+    return FourierEvaluation(held_out, targets, input_targets, full_targets, target_variance)
 
 
 def evaluate_cumulative(model, evaluation, batch_size=320):
     """One set of batched model forwards supplies every degree/input loss.
 
     These are MSE(g(x), f_{<=k}(x)), NOT projected model losses or coefficient
-    errors. The degree-K loss equals full-target loss. A perfectly learned
+    errors. For bandlimited targets the degree-K loss equals full-target loss.
+    Natural targets may retain mass above the evaluated cutoffs. A perfectly learned
     full function has lower-degree loss equal to its omitted tail mass in
     expectation, so those losses need not converge to zero or be monotone.
     """
@@ -64,6 +69,12 @@ def evaluate_cumulative(model, evaluation, batch_size=320):
     metrics = {f"eval/loss_degree_{degree}": float(loss)
                for degree, loss in enumerate(losses, start=1)}
     metrics["eval/loss"] = float(losses[-1])
+    if evaluation.full_targets is not None:
+        metrics["eval/loss"] = float((predictions - evaluation.full_targets).square().mean())
+        if evaluation.target_variance is not None and evaluation.target_variance > 0:
+            metrics["eval/loss_normalized"] = metrics["eval/loss"] / evaluation.target_variance
+            metrics.update({f"eval/loss_degree_{degree}_normalized": float(loss) / evaluation.target_variance
+                            for degree, loss in enumerate(losses, start=1)})
     if evaluation.input_targets is not None:
         input_losses = (predictions[:, None] - evaluation.input_targets).square().mean(dim=0)
         metrics.update({f"eval/loss_input_{count}": float(loss)
@@ -137,6 +148,8 @@ def train(model, function: FourierFunction, optimizer, config: TrainingConfig, *
         output_dir.mkdir(parents=True, exist_ok=True)
         evaluation_data = {"inputs": evaluation.held_out.inputs.cpu(),
                            "cumulative_targets": evaluation.cumulative_targets}
+        if evaluation.full_targets is not None:
+            evaluation_data.update(full_targets=evaluation.full_targets, target_variance=evaluation.target_variance)
         if evaluation.input_targets is not None:
             evaluation_data.update(input_targets=evaluation.input_targets,
                                    input_order=torch.tensor(function.input_order))
