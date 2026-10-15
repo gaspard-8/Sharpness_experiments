@@ -200,6 +200,49 @@ and `WANDB_ENTITY` overrides are honored. Jobs share a W&B group based on the
 Condor cluster ID and archive local metrics, checkpoints, target coefficients,
 and executed sources in the existing `results.tar.gz` output.
 
+### Original sparse functions on longer sequences: two-run sweep
+
+`sweep_sparse_long.py` selects **only the two sparse targets** from the first
+Fourier experiment, now using **20 relevant inputs** per function,
+with positive Fourier mass at every degree from **1 through 20**:
+
+| Run index | Function | Degree mass before normalization |
+| --- | --- | --- |
+| 0 | `sparse_powerlaw` | `d^(-2)` |
+| 1 | `sparse_geometric` | `0.9^(d-1)` |
+
+The supports, coefficient signs, and weights use the original sparse
+construction at length 20 with function seed 17. All other settings match the
+original experiment: one layer, width 256, eight heads, batch size 64,
+30,000 updates, AdamW (`lr=1e-4`, `weight_decay=1e-2`), model/training seed 7,
+evaluation seed 23, and **1,024 unique held-out sequences** excluded from
+training. Every step, including step zero, evaluates all 20 cumulative degree
+cutoffs and full-target `eval/loss`. Output sharpness is unchanged.
+
+The 20-bit input space contains `2^20` sequences, compared with 32, 128, and
+1,024 in the smaller sweep. New training sequences are sampled throughout the
+run. This setup increases both the number of relevant inputs and the maximum
+degree using the original construction. All input positions are relevant.
+
+```bash
+env/bin/python sweep_sparse_long.py --list
+env/bin/python sweep_sparse_long.py --run-index 0 --smoke-test --no-wandb --device cpu
+# On the submission host, queue exactly two full runs:
+bash submit-sparse-long-sweep.sh
+```
+
+The W&B project remains `single task Fourier sharpness`, with a separate
+`sparse-long-sweep-<cluster ID>` group. Results use fresh directories and the
+existing metrics/checkpoint/source archives. Common overrides use the same
+submission syntax as the original sweep. For example, to make both input
+length and highest degree 48:
+
+```bash
+bash submit-sparse-long-sweep.sh -append 'experiment_args=--input-len 48'
+```
+
+The earlier sweeps remain available, including the smaller six-run experiment.
+
 ### Smaller sparse functions: six-run sweep
 
 `sweep_sparse_small.py` trains the same `sparse_powerlaw` and
@@ -611,7 +654,8 @@ rsync -av dockerfile .dockerignore requirements.txt test.py test_arithmetic.py s
   sweep_arithmetic.sub submit-sweep.sh test_fourier.py sweep_fourier.py \
   sweep_fourier.sub submit-fourier-sweep.sh sweep_input_tower.py \
   sweep_input_tower.sub submit-input-tower-sweep.sh sweep_sparse_small.py \
-  sweep_sparse_small.sub submit-sparse-small-sweep.sh README.md \
+  sweep_sparse_small.sub submit-sparse-small-sweep.sh sweep_sparse_long.py \
+  sweep_sparse_long.sub submit-sparse-long-sweep.sh README.md \
   "$CLUSTER_LOGIN:/nethome/gtomas/projects/sharpness_experiments/"
 ssh "$CLUSTER_LOGIN"
 cd /nethome/gtomas/projects/sharpness_experiments
