@@ -1,4 +1,4 @@
-"""Train ONE Fourier target with a ONE-layer transformer on more than 24 bits.
+"""Train ONE Fourier target with a ONE-layer transformer on binary inputs.
 
     env/bin/python test_fourier.py --function sparse_powerlaw --smoke-test --no-wandb --device cpu
 
@@ -42,7 +42,7 @@ def nonnegative_int(value):
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--function", choices=(*FUNCTION_NAMES, *INPUT_TOWER_FUNCTION_NAMES), default=FUNCTION_NAMES[0])
-    parser.add_argument("--input-len", type=positive_int, default=32, help="Binary payload length; must exceed 24.")
+    parser.add_argument("--input-len", type=positive_int, default=32, help="Binary payload length.")
     parser.add_argument("--max-degree", type=positive_int, help="Highest degree; defaults to input-len, or core size for input towers.")
     parser.add_argument("--sparse-terms", type=positive_int, default=16, help="Max subsets per degree, or per stage/degree for input towers.")
     parser.add_argument("--power", type=float, default=2.0, help="Power-law mass exponent: mass_d proportional to d^(-power).")
@@ -79,8 +79,8 @@ def build_parser():
 
 
 def build_model_config(args):
-    if args.input_len <= 24:
-        raise ValueError("input-len must be greater than 24, including for smoke tests.")
+    if args.input_len < 1:
+        raise ValueError("input-len must be positive.")
     d_model = 2 * args.embedding_size
     if d_model % args.num_attn_heads:
         raise ValueError("Twice embedding-size must be divisible by num-attn-heads.")

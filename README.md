@@ -104,7 +104,7 @@ The separate experiment in `test_fourier.py` trains a **one-layer transformer**
 on **one real-valued Fourier function per model**, with identical model settings
 for all four targets. Inputs are independent uniform
 0/1 bits, with no task selector. The default input length and highest degree
-are both **32**; input length must exceed 24 even in smoke tests. Training uses
+are both **32**; smaller domains are supported with a suitably sized held-out set. Training uses
 the existing token/position embedding concatenation, scalar regression head,
 MSE, and AdamW (`lr=1e-4`, `weight_decay=1e-2`). The model uses the largest
 embedding size and head count from the arithmetic sweep: token and position
@@ -199,6 +199,59 @@ The default W&B project is `single task Fourier sharpness`; `WANDB_PROJECT`
 and `WANDB_ENTITY` overrides are honored. Jobs share a W&B group based on the
 Condor cluster ID and archive local metrics, checkpoints, target coefficients,
 and executed sources in the existing `results.tar.gz` output.
+
+### Smaller sparse functions: six-run sweep
+
+`sweep_sparse_small.py` trains the same `sparse_powerlaw` and
+`sparse_geometric` constructions at three smaller input lengths. Each row
+below contributes **two independent runs**, with one target per model:
+
+| Input bits | Maximum degree | Unique held-out inputs | Remaining training inputs |
+| --- | --- | --- | --- |
+| 5 | 5 | 8 | 24 |
+| 7 | 7 | 32 | 96 |
+| 10 | 10 | 256 | 768 |
+
+Each target has mass proportional to `d^(-2)` or `0.9^(d-1)`, normalized over
+degrees 1 through the input length, and up to 16 randomly chosen subsets per
+degree with random signs. The two spectra share supports and signs at each
+input length, using function seed 17. Model/training seed 7 and evaluation
+seed 23 are unchanged. There are 31, 79, and 133 nonzero Fourier terms,
+respectively, rather than the 497 terms of the original 32-input sparse targets.
+
+The model and training settings remain identical: one layer, token/position
+embeddings of 128 each (width 256), eight heads, batch size 64, 30,000 updates,
+and AdamW with learning rate `1e-4` and weight decay `1e-2`. Output sharpness
+retains the same settings. Every update, plus step zero, evaluates the full
+target and all cumulative degree cutoffs through 5, 7, or 10.
+
+The original 1,024-example evaluation set cannot leave training inputs on
+these domains. This sweep instead reserves a fixed **25% of each domain**;
+all held-out inputs remain excluded from training. Sampling training batches
+with replacement keeps the batch size at 64 even for the smallest domain.
+The original four-run Fourier sweep and three-run input-tower sweep are unchanged.
+
+```bash
+env/bin/python sweep_sparse_small.py --list
+env/bin/python sweep_sparse_small.py --run-index 0 --smoke-test --no-wandb --device cpu
+# On the submission host, queue exactly six full runs:
+bash submit-sparse-small-sweep.sh
+```
+
+Runs 0/1 use 5 inputs, 2/3 use 7, and 4/5 use 10; power-law precedes geometric.
+Each result saves its input length and maximum degree in the run name, a new
+output directory, and the existing metrics/checkpoint/source archive. The W&B
+project remains `single task Fourier sharpness`, with a separate
+`sparse-small-sweep-<cluster ID>` group. Smoke tests use two updates while
+retaining each row's architecture, batch size, degree range, and held-out set.
+Shared overrides use the existing submission syntax, for example:
+
+```bash
+bash submit-sparse-small-sweep.sh -append 'experiment_args=--smoke-test'
+# For the 5-input run, plot its five degree cutoffs:
+env/bin/python scripts/plot_fourier_loss.py --input unzipped_results \
+  --run sparse_powerlaw-n5-k5 --max-degree 5 --max-step 15000
+```
 
 Plot cumulative evaluation losses from one run on one graph:
 
@@ -557,7 +610,8 @@ rsync -av dockerfile .dockerignore requirements.txt test.py test_arithmetic.py s
   run-test.sh test.sub submit-wandb.sh submit.sh sweep_arithmetic.py \
   sweep_arithmetic.sub submit-sweep.sh test_fourier.py sweep_fourier.py \
   sweep_fourier.sub submit-fourier-sweep.sh sweep_input_tower.py \
-  sweep_input_tower.sub submit-input-tower-sweep.sh README.md \
+  sweep_input_tower.sub submit-input-tower-sweep.sh sweep_sparse_small.py \
+  sweep_sparse_small.sub submit-sparse-small-sweep.sh README.md \
   "$CLUSTER_LOGIN:/nethome/gtomas/projects/sharpness_experiments/"
 ssh "$CLUSTER_LOGIN"
 cd /nethome/gtomas/projects/sharpness_experiments

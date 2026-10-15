@@ -297,9 +297,11 @@ class FourierSweepTest(unittest.TestCase):
                 "-append", "experiment_args=--steps 1000 --seed 19"])
 
     def test_invalid_architectures_lengths_and_existing_results_are_rejected(self):
-        for flags in (["--input-len", "24"], ["--embedding-size", "7", "--num-attn-heads", "8"]):
-            with self.assertRaises(ValueError):
-                experiment.build_model_config(experiment.build_parser().parse_args(flags))
+        with self.assertRaises(ValueError):
+            experiment.build_model_config(experiment.build_parser().parse_args(
+                ["--embedding-size", "7", "--num-attn-heads", "8"]))
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            experiment.build_parser().parse_args(["--input-len", "0"])
         function = FourierFunction(input_len=32)
         model = TransformerModel(d_model=8, num_attn_heads=2, num_layers=2, max_len=32)
         with self.assertRaisesRegex(ValueError, "one transformer layer"):
