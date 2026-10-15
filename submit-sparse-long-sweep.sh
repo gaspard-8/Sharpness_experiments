@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Queue the two sparse Fourier targets with 20 inputs and degrees 1..20.
+# Queue the two sparse Fourier targets with 20 inputs and degrees 1..6.
 set -euo pipefail
 set +x
 

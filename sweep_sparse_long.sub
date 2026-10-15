@@ -1,4 +1,4 @@
-# Submit through bash submit-sparse-long-sweep.sh. Two 20-input sparse targets.
+# Submit through bash submit-sparse-long-sweep.sh. Two 20-input, degree-6 targets.
 project_dir             = /nethome/gtomas/projects/sharpness_experiments
 log_dir                 = /scratch/gtomas/logs/sharpness_experiments
 result_dir              = /scratch/gtomas/sharpness_experiments/results

@@ -1,4 +1,4 @@
-"""The two sparse targets use the original construction at input length 20."""
+"""The two sparse targets use 20 inputs and strictly decreasing weights through degree 6."""
 
 import contextlib
 import io
@@ -27,12 +27,13 @@ class LongSparseSweepTest(unittest.TestCase):
     def setUpClass(cls):
         torch.set_num_threads(1)
 
-    def test_two_runs_match_the_original_sparse_construction_at_length_20(self):
+    def test_two_runs_match_the_original_sparse_construction_at_length_20_degree_6(self):
         self.assertEqual(sweep.build_grid(), original.build_grid()[2:])
         for index, function in enumerate(("sparse_powerlaw", "sparse_geometric")):
             with self.subTest(function=function):
                 args = sweep.build_parser().parse_args(["--run-index", str(index)])
-                old_args = original.build_parser().parse_args(["--run-index", str(index + 2), "--input-len", "20"])
+                old_args = original.build_parser().parse_args([
+                    "--run-index", str(index + 2), "--input-len", "20", "--max-degree", "6"])
                 options = experiment.build_parser().parse_args(sweep.experiment_arguments(args))
                 old_options = experiment.build_parser().parse_args(original.experiment_arguments(old_args))
                 actual, expected = vars(options).copy(), vars(old_options).copy()
@@ -40,10 +41,18 @@ class LongSparseSweepTest(unittest.TestCase):
                 expected.pop("wandb_group")
                 self.assertEqual(actual, expected)
                 target = experiment.build_function(options)
-                self.assertEqual(target.metadata(), make_function(function, input_len=20).metadata())
-                self.assertEqual((target.input_len, target.max_degree), (20, 20))
-                self.assertEqual(len(target.subsets), 305)
+                self.assertEqual(target.metadata(), make_function(function, input_len=20, max_degree=6).metadata())
+                self.assertEqual((target.input_len, target.max_degree), (20, 6))
+                self.assertEqual(len(target.subsets), 96)
                 self.assertEqual(set().union(*map(set, target.subsets)), set(range(20)))
+                magnitudes = [[abs(coefficient) for coefficient in target.coefficients[start:end]]
+                              for start, end in zip(target.offsets, target.offsets[1:])]
+                self.assertTrue(all(len(level) == 16 for level in magnitudes))
+                self.assertTrue(all(min(lower) > max(higher)
+                                    for lower, higher in zip(magnitudes, magnitudes[1:])))
+                masses = [math.fsum(coefficient ** 2 for coefficient in level) for level in magnitudes]
+                self.assertAlmostEqual(math.fsum(masses), 1.)
+                self.assertTrue(all(lower > higher > 0 for lower, higher in zip(masses, masses[1:])))
 
     def test_listing_is_read_only_and_invalid_indices_are_rejected(self):
         output = io.StringIO()
@@ -53,7 +62,7 @@ class LongSparseSweepTest(unittest.TestCase):
         listed = json.loads(output.getvalue())
         self.assertEqual(len(listed), 2)
         self.assertEqual([row["function"] for row in listed], ["sparse_powerlaw", "sparse_geometric"])
-        self.assertTrue(all(row["input_len"] == row["max_degree"] == 20 for row in listed))
+        self.assertTrue(all(row["input_len"] == 20 and row["max_degree"] == 6 for row in listed))
         for index in (-1, 2):
             with self.assertRaises(ValueError):
                 sweep.experiment_arguments(sweep.build_parser().parse_args(["--run-index", str(index)]))
@@ -65,7 +74,7 @@ class LongSparseSweepTest(unittest.TestCase):
                     output = sweep.main(["--run-index", str(index), "--smoke-test", "--no-wandb",
                                          "--device", "cpu", "--output-dir", directory])
                 config = json.loads((output / "config.json").read_text())
-                self.assertEqual(config["function"], make_function(function, input_len=20).metadata())
+                self.assertEqual(config["function"], make_function(function, input_len=20, max_degree=6).metadata())
                 self.assertEqual(config["model_num_layers"], 1)
                 self.assertEqual(config["model_d_model"], 256)
                 self.assertEqual(config["model_num_attn_heads"], 8)
@@ -75,11 +84,11 @@ class LongSparseSweepTest(unittest.TestCase):
                 self.assertEqual(config["num_tasks"], 1)
                 records = [json.loads(line) for line in (output / "metrics.jsonl").read_text().splitlines()]
                 self.assertEqual([row["step"] for row in records], [0, 1, 2])
-                degree_keys = {f"eval/loss_degree_{degree}" for degree in range(1, 21)}
+                degree_keys = {f"eval/loss_degree_{degree}" for degree in range(1, 7)}
                 for row in records:
                     self.assertEqual({key for key in row if key.startswith("eval/loss_degree_")}, degree_keys)
                     self.assertTrue(all(math.isfinite(row[key]) for key in degree_keys))
-                    self.assertEqual(row["eval/loss"], row["eval/loss_degree_20"])
+                    self.assertEqual(row["eval/loss"], row["eval/loss_degree_6"])
                 checkpoint = torch.load(output / "checkpoint.pt", weights_only=True)
                 self.assertEqual(checkpoint["completed_steps"], 2)
                 model = TransformerModel(**checkpoint["model_config"])

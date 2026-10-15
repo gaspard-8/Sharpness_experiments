@@ -1,9 +1,9 @@
-"""Two runs: the original sparse Fourier construction on 20-input sequences.
+"""Two runs: the original sparse Fourier construction on 20 inputs, degrees 1..6.
 
     env/bin/python sweep_sparse_long.py --list
     env/bin/python sweep_sparse_long.py --run-index 0 --smoke-test --no-wandb --device cpu
 
-Defaults: 20 inputs, degrees 1..20, one layer, width 256, eight heads,
+Defaults: 20 inputs, degrees 1..6, one layer, width 256, eight heads,
 batch size 64, and 30,000 updates. One target per model; other settings match
 the original Fourier experiment.
 """
@@ -33,7 +33,7 @@ def build_parser():
     parser.add_argument("--function-seed", type=int, default=17)
     parser.add_argument("--eval-seed", type=int, default=23)
     parser.add_argument("--input-len", type=experiment.positive_int, default=20)
-    parser.add_argument("--max-degree", type=experiment.positive_int)
+    parser.add_argument("--max-degree", type=experiment.positive_int, default=6)
     parser.add_argument("--sparse-terms", type=experiment.positive_int, default=16)
     parser.add_argument("--power", type=float, default=2.0)
     parser.add_argument("--geometric-decay", type=float, default=0.9)
