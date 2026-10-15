@@ -98,6 +98,126 @@ sharpness`; existing project/entity overrides and credentials are respected.
 Source transfers and result archives use the existing cluster runner.
 Plot filenames distinguish input/degree axes and preserve earlier exports.
 
+## Multiplication hundreds digit: nine larger models
+
+`sweep_multiplication_digit.py` crosses **layers 1, 2, 4** with total model
+**widths 512, 1,024, 2,048**: nine independent runs of one task. Inputs are
+exactly six decimal tokens, ordered `a_hundreds a_tens a_units b_hundreds
+b_tens b_units`. All six digits are independent uniform draws from 0–9;
+operands include leading zeros and range from **000 to 999**. The only output
+is the **third digit from the right**, `floor(a*b/100) % 10`. For example,
+`123321` represents `123*321=39483` and has target **4**.
+
+The model predicts ten digit logits and trains with **cross entropy**. It uses
+the same concatenated token/position embeddings as the earlier experiments:
+each embedding has width `d_model/2`, so the stated model widths are the total
+encoder widths. Each encoder layer has eight heads, ReLU, feedforward width
+`d_model`, and dropout zero. All six inputs are visible to the final-position
+classification head. The largest model has **100,782,090 parameters**.
+
+| Indices | Layers | Widths |
+| --- | --- | --- |
+| 0, 1, 2 | 1 | 512, 1,024, 2,048 |
+| 3, 4, 5 | 2 | 512, 1,024, 2,048 |
+| 6, 7, 8 | 4 | 512, 1,024, 2,048 |
+
+Full runs retain **50,000 updates**, batch size 64, AdamW (`lr=1e-4`,
+`weight_decay=1e-2`), model/training seed 7, and evaluation seed 23. The same
+1,024 unique evaluation inputs are shared across all nine models. **Both
+orders of every held-out operand pair are excluded from training**, to account
+for commutativity. Other training pairs are sampled online. Gaussian output
+sharpness uses the existing interval 100, rho 0.02, 32 inputs, and four noise
+draws; positional embeddings are excluded from perturbations.
+
+### Fourier degree on the ten-symbol alphabet
+
+The implementation follows the orthonormal product-space construction in
+[O'Donnell, Chapter 8](https://www.cs.cmu.edu/~odonnell/papers/Analysis-of-Boolean-Functions-by-Ryan-ODonnell.pdf#page=208).
+On one uniform decimal coordinate, `B_0(x)=1`; for `j=1..9`, use real Helmert
+contrasts: `sqrt(10/(j*(j+1)))` at `x<j`, `-j*sqrt(10/(j*(j+1)))` at `x=j`,
+and zero otherwise. Their uniform inner products satisfy
+`E[B_i(X)*B_j(X)] = 1{i=j}`. The full basis is
+`chi_alpha(x) = product_i B_{alpha_i}(x_i)`.
+
+**Degree counts nonconstant input coordinates**, `#{i: alpha_i != 0}`,
+rather than summing the numerical frequency indices. Consequently the maximum
+degree is **6**. Degree mass is the sum of squared coefficients at that
+support size. It is unchanged by choosing a different orthonormal basis for
+the nonconstant functions on each coordinate.
+
+Two output representations are computed and saved:
+
+- **Categorical:** the ten indicators `F_c(x)=1{target(x)=c}`, with degree
+  masses summed over classes. This treats digit labels as categories.
+- **Numeric:** the scalar digit `f(x)` in 0–9. Its coefficients are the
+  digit-weighted sum of the indicator coefficients, preserving the earlier
+  scalar-function interpretation.
+
+The exact finite-domain computation enumerates **all 1,000,000 inputs** and
+applies six real product-basis transforms in float64. Reconstruction and
+Parseval's identity are checked. The constant masses are 0.1000219 for the
+categorical representation and 20.10177225 for the numeric representation.
+The following percentages concern **nonconstant mass (variance)**:
+
+| Degree | Categorical variance | Numeric digit variance |
+| --- | --- | --- |
+| 1 | 0.0361% | 0.0503% |
+| 2 | 0.4827% | 0.5907% |
+| 3 | 3.6669% | 3.2367% |
+| 4 | 15.4587% | 12.1370% |
+| 5 | 36.9421% | 35.1019% |
+| 6 | 43.4135% | 48.8834% |
+
+Thus degrees 5–6 contain 80.36% of categorical variance and 83.99% of numeric
+variance. `multiplication_fourier_targets/manifest.json` records the full raw
+masses, per-class spectra, class probabilities, omitted tails, basis convention,
+and checksum. The NPZ stores every coefficient and the digit truth table.
+The default evaluation bank is also already prepared. Regenerate/verify with:
+
+```bash
+env/bin/python sweep_multiplication_digit.py --prepare
+env/bin/python sweep_multiplication_digit.py --list
+env/bin/python sweep_multiplication_digit.py --run-index 0 --smoke-test --no-wandb --device cpu
+# On the configured GPU submission host:
+bash submit-multiplication-digit-sweep.sh
+```
+
+### Per-step measurements
+
+Step zero and **every completed update** record full-target cross entropy as
+`eval/loss`, digit accuracy as `eval/accuracy`, and both Fourier comparisons:
+
+- `eval/loss_degree_1` through `eval/loss_degree_6`: squared error between
+  model probabilities and the exact cumulative **indicator-vector** projections,
+  summed over the ten classes and averaged over evaluation inputs. The final
+  cutoff is full-target Brier loss, also logged as `eval/brier`.
+- `eval/scalar_loss_degree_1` through `eval/scalar_loss_degree_6`: MSE between
+  the model's expected digit and the cumulative **numeric-digit** projections.
+  The final cutoff is also logged as `eval/scalar_mse`.
+
+All projections include the constant term and are computed before training.
+One prediction bank supplies all measurements. Truncated indicator projections
+can contain negative entries; their losses therefore use squared error, with
+no clipping or renormalization. Cross entropy always uses the true digit label.
+The projections are evaluation targets; they do not enter the optimizer loss.
+Exact conditional averages and subset Mobius inversion build the evaluation
+bank, equivalent to retaining product-basis coefficients by degree.
+
+W&B project: **`multiplication digit fourier analysis`**, grouped by cluster
+ID. Each run saves its exact spectrum, evaluation bank, metrics, model and
+optimizer checkpoint, definition and source code in a fresh results directory.
+Cluster jobs request one 64-GB GPU, 16 GB host memory and 16 GB disk to cover
+larger checkpoints and archives. Smoke tests keep the selected architecture
+and use two updates, batch 4 and eight held-out inputs. Architecture checks
+cover all nine full-size parameter graphs; local training checks cover widths
+512 and 1,024 and depths 1, 2 and 4. Full GPU training must be launched on a
+host with the configured cluster tools.
+
+```bash
+env/bin/python scripts/plot_fourier_loss.py --input unzipped_results \
+  --run multiplication-hundreds --max-degree 6 --max-step 50000
+```
+
 ## Classic functions: exact Fourier analysis through degree 8
 
 `sweep_classic_fourier.py` prepares **four independent runs**, one each for
@@ -798,7 +918,9 @@ rsync -av dockerfile .dockerignore requirements.txt test.py test_arithmetic.py s
   sweep_sparse_small.sub submit-sparse-small-sweep.sh sweep_sparse_long.py \
   sweep_sparse_long.sub submit-sparse-long-sweep.sh sweep_sparse_grid.py \
   sweep_sparse_grid.sub submit-sparse-grid-sweep.sh sweep_classic_fourier.py \
-  sweep_classic_fourier.sub submit-classic-fourier-sweep.sh classic_fourier_targets README.md \
+  sweep_classic_fourier.sub submit-classic-fourier-sweep.sh classic_fourier_targets \
+  test_multiplication_digit.py sweep_multiplication_digit.py sweep_multiplication_digit.sub \
+  submit-multiplication-digit-sweep.sh multiplication_fourier_targets README.md \
   "$CLUSTER_LOGIN:/nethome/gtomas/projects/sharpness_experiments/"
 ssh "$CLUSTER_LOGIN"
 cd /nethome/gtomas/projects/sharpness_experiments

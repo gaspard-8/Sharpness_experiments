@@ -53,6 +53,9 @@ fi
 if [ -f test_fourier.py ] && [ "$experiment_script" != test_fourier.py ]; then
     cp test_fourier.py results/code/
 fi
+if [ -f test_multiplication_digit.py ] && [ "$experiment_script" != test_multiplication_digit.py ]; then
+    cp test_multiplication_digit.py results/code/
+fi
 cp -R src results/code/
 printf 'Host: %s\nStarted (UTC): %s\n' "$(hostname)" "$(date -u +%FT%TZ)" > results/job-context.txt
 python -u "$experiment_script" "$@"
